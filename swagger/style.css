@@ -1,0 +1,37 @@
+/* Body background color */
+body {
+    background-color: #e0e0e0;
+}
+
+/* Topbar background color */
+.swagger-ui .topbar {
+    background-color: rgb(65, 26, 238);
+}
+
+/* Base URL font size */
+.swagger-ui .info .base-url {
+    font-size: 20px; /* Slightly smaller for better fit */
+}
+
+/* Markdown paragraph font size */
+.swagger-ui .markdown p {
+    font-size: 16px; /* More reasonable size */
+}
+
+/* Execute button background color */
+.swagger-ui .btn.execute {
+    background-color: green;
+    color: white; /* Ensure text is readable */
+}
+
+/* Specific button background color */
+.swagger-ui .opblock .opblock-summary-control {
+    background: orange;
+    color: black; /* Ensure text is readable */
+}
+
+/* Scheme container background color */
+.swagger-ui .scheme-container {
+    background-color: rgb(238, 176, 61);
+    color: black; /* Ensure text is readable */
+}
