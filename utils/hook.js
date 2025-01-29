@@ -7,11 +7,12 @@ const createSlug = (value) =>{
 
 }
 
-const  message = (status, message, data) =>{
+const  message = (status, message, data, count) =>{
     return{
         success : status,
         message : message,
-        data : data
+        data : data,
+        count : count
     }
 }
 

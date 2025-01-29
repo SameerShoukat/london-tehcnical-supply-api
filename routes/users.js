@@ -5,7 +5,10 @@ const {
   registerUser, 
   loginUser, 
   getUserProfile, 
-  updateUserProfile 
+  updateUserProfile,
+  getAll,
+  getOne,
+  deleteOne
 } = require('../controllers/users');
 const { protect } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
@@ -15,15 +18,18 @@ const userSchema = Joi.object({
     'string.email': 'Please provide a valid email address',
     'any.required': 'Email is required'
   }),
+  roleId : Joi.string().optional(),
   password: Joi.string().required().messages({
     'any.required': 'Password is required'
   })
 });
 
 
+
+
 /**
  * @openapi
- * '/api/users/register':
+ * '/api/user/register':
  *  post:
  *     tags:
  *     - USER
@@ -71,7 +77,7 @@ router.post('/register', validateRequest(userSchema), registerUser);
 
 /**
  * @openapi
- * '/api/users/login':
+ * '/api/user/login':
  *  post:
  *     tags:
  *     - USER
@@ -119,7 +125,7 @@ router.post('/login', validateRequest(userSchema), loginUser);
 
 /**
  * @openapi
- * '/api/users/profile':
+ * '/api/user/profile':
  *  get:
  *     tags:
  *     - USER
@@ -154,9 +160,100 @@ router.post('/login', validateRequest(userSchema), loginUser);
  *         description: not found
  */
 router.get('/profile', protect, getUserProfile);
+
 /**
  * @openapi
- * '/api/users/{id}':
+ * '/api/user/all':
+ *  get:
+ *     tags:
+ *     - USER
+ *     summary: Get all roles
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *       - in: query
+ *         name: pagination
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Name of the page to filter accounts
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *          application/json:
+ *            schema:
+ *              type: array
+ *              items:
+ *                type: object
+ *                properties:
+ *                  id:
+ *                    example : "gdgdgdgdcbcbcb"
+ *                  firstName:
+ *                    example : "Harris"
+ *                  lastName:
+ *                    example : "Jordan"
+ *                  email:
+ *                    example: "harrisjordan@gmail.com"
+ *                  role:
+ *                    example: "admin"
+ *                  jwtToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *                  refreshToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *       404:
+ *         description: not found
+ */
+router.get('/all', protect, getAll);
+
+/**
+ * @openapi
+ * '/api/user/{id}':
+ *  get:
+ *     tags:
+ *     - USER
+ *     summary: Get role information
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *     - name: id
+ *       in: path
+ *       required: true
+ *       description: ID of the account
+ *       schema:
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *          application/json:
+ *            schema:
+ *              type: array
+ *              items:
+ *                type: object
+ *                properties:
+ *                  id:
+ *                    example : "gdgdgdgdcbcbcb"
+ *                  firstName:
+ *                    example : "Harris"
+ *                  lastName:
+ *                    example : "Jordan"
+ *                  email:
+ *                    example: "harrisjordan@gmail.com"
+ *                  role:
+ *                    example: "admin"
+ *                  jwtToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *                  refreshToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *       404:
+ *         description: not found
+ */
+router.get('/:id', protect, getOne);
+
+/**
+ * @openapi
+ * '/api/user/{id}':
  *  put:
  *     tags:
  *     - USER
@@ -183,12 +280,9 @@ router.get('/profile', protect, getUserProfile);
  *              lastName:
  *                type: string
  *                default: Jordan
- *              email:
+ *              phone:
  *                type: string
- *                default: admin@londontechnicalsupply.com
- *              password:
- *                type: string
- *                default: adm%%4in
+ *                default: 03123456789
  *     responses:
  *       200:
  *         description: Success
@@ -220,7 +314,7 @@ router.put('/:id', protect, updateUserProfile);
 
 /**
  * @openapi
- * '/api/users/profile':
+ * '/api/user/profile':
  *  put:
  *     tags:
  *     - USER
@@ -240,12 +334,9 @@ router.put('/:id', protect, updateUserProfile);
  *              lastName:
  *                type: string
  *                default: Jordan
- *              email:
+ *              phone:
  *                type: string
- *                default: admin@londontechnicalsupply.com
- *              password:
- *                type: string
- *                default: adm%%4in
+ *                default: 03123456789
  *     responses:
  *       200:
  *         description: Success
@@ -274,5 +365,64 @@ router.put('/:id', protect, updateUserProfile);
  *         description: not found
  */
 router.put('/profile', protect, updateUserProfile);
+
+/**
+ * @openapi
+ * '/api/user/{id}':
+ *  delete:
+ *     tags:
+ *     - USER
+ *     summary: Delete User
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *     - name: id
+ *       in: path
+ *       required: true
+ *       description: ID of the account
+ *       schema:
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   name:
+ *                     type: string
+ *                     example: "finance"
+ *                   accounts:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ['read', 'manage', 'delete']
+ *                   stocks:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ['read', 'manage', 'delete']
+ *                   orders:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ['read', 'manage', 'delete']
+ *                   finance:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ['read', 'manage', 'delete']
+ *       404:
+ *         description: Not Found
+ */
+router.delete('/:id', protect, deleteOne);
+
+
 
 module.exports = router;

@@ -26,7 +26,8 @@ if (process.env.NODE_ENV === 'development') {
 
 // Routes
 app.use('/documentation', apiDocumentation);
-app.use('/api/users', require('./routes/users'));
+app.use('/api/user', require('./routes/users'));
+app.use('/api/role', require('./routes/roles'));
 
 // Error handling middleware
 app.use(errorMiddleware);
@@ -39,7 +40,10 @@ app.use(errorMiddleware);
     console.log('Database connected successfully');
 
     // Sync models
-    // await sequelize.sync({ alter: true });
+    
+    // await sequelize.sync({
+    //   alter: true
+    // })
     // console.log('Models synchronized successfully');
 
     // Start the server

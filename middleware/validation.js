@@ -1,4 +1,3 @@
-const Boom = require('@hapi/boom');
 const {message} = require("../utils/hook")
 
 
