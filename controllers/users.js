@@ -1,31 +1,68 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require("../models/users");
+const Role = require("../models/roles");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
+const { where } = require('sequelize');
 
 // Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
+const getOneUser = async (where) => {
+   return await User.findOne({
+    where: where,
+    attributes: { exclude: ['password']},
+    include: [{
+      model: Role,
+      as: 'role',
+      attributes: ['name', 'permissions']
+    }]
+  });
+}
+
+const filter = (user) =>{
+  const updatedUser = user.toJSON();
+  delete updatedUser.role;
+  return updatedUser
+
+}
+
 // @desc    Register a new user
 // @route   POST /api/users/register
 const registerUser = async (req, res, next) => {
   try {
-    console.log(req.body)
     const { firstName, lastName, roleId, email, password } = req.body;
 
-    // Check if user exists
-    const userExists = await User.findOne({ where: { email } });
-    if (userExists) {
-      throw boom.conflict('User already exists');
+    // Check if the user exists (including soft-deleted ones)
+    const existingUser = await User.findOne({
+      paranoid: false,
+      where: { email },
+    });
+
+    if (existingUser) {
+      if (existingUser.deletedAt) {
+        // Restore soft-deleted user
+        existingUser.restore();
+        const token = generateToken(existingUser.id);
+        return res.status(201).json(message(true, 'User has been restored successfully', {
+          id: existingUser.id,
+          firstName: existingUser.firstName,
+          lastName: existingUser.lastName,
+          email: existingUser.email,
+          token,
+        }));
+      } else {
+        throw boom.conflict('A user with this email already exists.');
+      }
     }
 
-    // Hash password before saving
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create a new user
     const user = await User.create({
       firstName,
       lastName,
@@ -45,9 +82,10 @@ const registerUser = async (req, res, next) => {
       token,
     }));
   } catch (error) {
-    next(error); // Pass error to the global error handler
+    next(error); // Pass error to global error handler
   }
 };
+
 
 // @desc    Authenticate user & get token
 // @route   POST /api/users/login
@@ -56,10 +94,13 @@ const loginUser = async (req, res, next) => {
     const { email, password } = req.body;
 
     // Find user by email
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { email}});
     if(!user) throw boom.notFound('User not found');
+
+    console.log(user)
+
     
-    // if (!bcrypt.compareSync(password, user.password)) throw boom.unauthorized(`Invalid password`);
+    if (!bcrypt.compareSync(password, user.password)) throw boom.unauthorized(`Invalid password`);
 
       // Generate token
       const token = generateToken(user.id);
@@ -80,15 +121,11 @@ const loginUser = async (req, res, next) => {
 // @route   GET /api/users/profile
 const getUserProfile = async (req, res, next) => {
   try {
-    const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['password'] },
-    });
-
+    const user = await getOneUser({id : req.user.id});
     if (!user) {
       throw boom.notFound('User not found');
     }
-
-    res.status(200).json(message(true, 'User details retrieved successfully', user));
+    res.status(200).json(message(true, 'User details retrieved successfully', filter(user)));
   } catch (error) {
     next(error);
   }
@@ -98,8 +135,8 @@ const getUserProfile = async (req, res, next) => {
 // @route   PUT /api/users/profile
 const updateUserProfile = async (req, res, next) => {
   try {
-    const user = await User.findByPk(req.user.id);
-
+    const userId = req.params.id ? req.params.id : req.user.id;
+   const user = await getOneUser({id : userId});
     if (!user) {
       throw boom.notFound('User not found');
     }
@@ -120,13 +157,7 @@ const updateUserProfile = async (req, res, next) => {
 
     await user.update(updatedFields);
 
-    res.status(200).json(message(true, 'User profile updated successfully', {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone : user.phone
-    }));
+    res.status(200).json(message(true, 'User profile updated successfully', filter(user)));
   } catch (error) {
     next(error);
   }
@@ -138,7 +169,7 @@ const getAll = async (req, res, next) => {
     const { page = 1, limit = 10 } = req.query;
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
-    const whereClause = { deletedAt: null };
+    const whereClause = {  };
 
     // Get the total count of matching rows
     const count = await User.count({ where: whereClause });
@@ -146,6 +177,7 @@ const getAll = async (req, res, next) => {
     // Get the paginated rows
     const rows = await User.findAll({
       where: whereClause,
+      attributes: { exclude: ['password'] },
       order: [['createdAt', 'DESC']],
       limit: parseInt(limit, 10),
       offset,
@@ -164,67 +196,31 @@ const getAll = async (req, res, next) => {
 const getOne = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const user = await User.findOne({id:id, deletedAt: null});
+        const user = await getOneUser({id});
 
-        if (!user) throw boom.notFound(message(false, 'User not found'));
+        if (!user) throw boom.notFound('User not found');
 
-        return res.status(200).json(message(true, 'User retrieved successfully', user));
+        return res.status(200).json(message(true, 'User retrieved successfully', filter(user)));
     } catch (error) {
       next(error);
     }
 };
 
 // Update a role by ID
-const updateOne = async (req, res, next) => {
-  try {
-
-    const { id } = req.params;
-    const updateData = req.body;
-
-    const user = await User.findByPk(id);
-    if (!user) {
-      throw boom.notFound('User not found');
-    }
-
-    // Update fields
-    const updatedFields = {
-      firstName: updateData.firstName || user.firstName,
-      lastName: updateData.lastName || user.lastName,
-      roleId: updateData.roleId || user.roleId,
-      email: updateData.email || user.email,
-      phone: updateData.phone || user.phone,
-    };
-
-    // Update password if provided
-    if (updateData.password) {
-      updatedFields.password = await bcrypt.hash(updateData.password, 10);
-    }
-
-    await User.update(updatedFields);
-
-    res.status(200).json(message(true, 'User profile updated successfully', {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone : user.phone
-    }));
-  } catch (error) {
-    next(error);
-  }
-};
 
 
 const deleteOne = async (req, res, next) => {
   try {
       const { id } = req.params;
-      const user = await User.findByPk(id);
 
-      if (!user) {
-          throw boom.notFound(message.notFound('User'));
-      }
+      const user = await getOneUser({id});
+      if (!user) throw boom.notFound('User not found');
 
-      await user.update({ deletedAt: new Date() });
+      if(user?.role?.name === 'admin'){
+        throw boom.badRequest('Admin cant be deleted');
+      } 
+
+      await user.destroy();
 
       return res.status(200).json(message(true, 'User deleted successfully'));
   } catch (error) {
@@ -242,6 +238,5 @@ module.exports = {
   updateUserProfile,
   getAll,
   getOne,
-  updateOne,
   deleteOne
 };

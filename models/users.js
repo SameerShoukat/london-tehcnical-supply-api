@@ -36,20 +36,20 @@ const User = sequelize.define('User', {
   },
   phone: {
     type: DataTypes.STRING,
-    unique: true,
     allowNull: true,
   },
   password: {
     type: DataTypes.STRING,
     allowNull: false
-  },
-  deletedAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
   }
+},
+{
+    tableName : 'users',
+    paranoid: true, // Enables soft deletes
+    timestamps: true, // Enables createdAt and updatedAt
 });
 
-User.belongsTo(Role);
-Role.hasMany(User);
 
+User.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
+Role.hasMany(User, { foreignKey: 'roleId' });  // `roleId` links Role to Users
 module.exports = User;

@@ -3,17 +3,22 @@ const { createSlug } = require("../utils/hook");
 const _ = require("lodash");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
+const allPermissions = require('../models/perrmisions');
 
 // Create a new role
 const create = async (req, res, next) => {
     try {
-      
-        const roleData = req.body;
 
+        const roleData = req.body;
         const ifRoleNameExist = await Role.findOne({ where: { slug: createSlug(roleData.name) }});
         if (ifRoleNameExist) {
             throw boom.conflict('Role already exists with this name');
         }
+
+        if(roleData?.name?.toLowerCase() === 'admin'){
+          roleData.permissions = allPermissions;
+        }
+        
         const role = await Role.create(roleData);
         return res.status(201).json(message(true, 'Role created successfully', role));
 
@@ -95,6 +100,8 @@ const deleteOne = async (req, res, next) => {
             throw boom.notFound(message.notFound('Role'));
         }
 
+        if(role.name === 'admin') throw boom.badRequest('You cannot delete the admin role');
+
         await role.update({ deletedAt: new Date() });
 
         return res.status(200).json(message(true, 'Role deleted successfully'));
@@ -103,10 +110,16 @@ const deleteOne = async (req, res, next) => {
     }
 };
 
+
+const getPermission = async (req, res, next) =>{
+  res.status(200).json(message(true, 'Permissions retrieved successfully', allPermissions));
+}
+
 module.exports = {
     create,
     getAll,
     updateOne,
     getOne,
-    deleteOne
+    deleteOne,
+    getPermission
 };

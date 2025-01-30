@@ -10,7 +10,7 @@ const {
   getOne,
   deleteOne
 } = require('../controllers/users');
-const { protect } = require('../middleware/auth');
+const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 
 const userSchema = Joi.object({
@@ -159,7 +159,7 @@ router.post('/login', validateRequest(userSchema), loginUser);
  *       404:
  *         description: not found
  */
-router.get('/profile', protect, getUserProfile);
+router.get('/profile', authorize('', '', true), getUserProfile);
 
 /**
  * @openapi
@@ -204,7 +204,7 @@ router.get('/profile', protect, getUserProfile);
  *       404:
  *         description: not found
  */
-router.get('/all', protect, getAll);
+router.get('/all', authorize('accounts', 'view'), getAll);
 
 /**
  * @openapi
@@ -249,7 +249,61 @@ router.get('/all', protect, getAll);
  *       404:
  *         description: not found
  */
-router.get('/:id', protect, getOne);
+router.get('/:id', authorize('accounts', 'view'), getOne);
+
+/**
+ * @openapi
+ * '/api/user/profile':
+ *  put:
+ *     tags:
+ *     - USER
+ *     summary: Update user profile information
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *           schema:
+ *            type: object
+ *            properties:
+ *              firstName:
+ *                type: string
+ *                default: Harris
+ *              lastName:
+ *                type: string
+ *                default: Jordan
+ *              phone:
+ *                type: string
+ *                default: 03123456789
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *          application/json:
+ *            schema:
+ *              type: array
+ *              items:
+ *                type: object
+ *                properties:
+ *                  id:
+ *                    example : "gdgdgdgdcbcbcb"
+ *                  firstName:
+ *                    example : "Harris"
+ *                  lastName:
+ *                    example : "Jordan"
+ *                  email:
+ *                    example: "harrisjordan@gmail.com"
+ *                  role:
+ *                    example: "admin"
+ *                  jwtToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *                  refreshToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *       404:
+ *         description: not found
+ */
+router.put('/profile', authorize('', '', true), updateUserProfile);
 
 /**
  * @openapi
@@ -310,61 +364,9 @@ router.get('/:id', protect, getOne);
  *       404:
  *         description: not found
  */
-router.put('/:id', protect, updateUserProfile);
+router.put('/:id', authorize('accounts', 'manage'), updateUserProfile);
 
-/**
- * @openapi
- * '/api/user/profile':
- *  put:
- *     tags:
- *     - USER
- *     summary: Update user profile information
- *     security:
- *     - Bearer: []  # Reference to the security scheme
- *     requestBody:
- *      required: true
- *      content:
- *        application/json:
- *           schema:
- *            type: object
- *            properties:
- *              firstName:
- *                type: string
- *                default: Harris
- *              lastName:
- *                type: string
- *                default: Jordan
- *              phone:
- *                type: string
- *                default: 03123456789
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *          application/json:
- *            schema:
- *              type: array
- *              items:
- *                type: object
- *                properties:
- *                  id:
- *                    example : "gdgdgdgdcbcbcb"
- *                  firstName:
- *                    example : "Harris"
- *                  lastName:
- *                    example : "Jordan"
- *                  email:
- *                    example: "harrisjordan@gmail.com"
- *                  role:
- *                    example: "admin"
- *                  jwtToken:
- *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
- *                  refreshToken:
- *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
- *       404:
- *         description: not found
- */
-router.put('/profile', protect, updateUserProfile);
+
 
 /**
  * @openapi
@@ -421,7 +423,7 @@ router.put('/profile', protect, updateUserProfile);
  *       404:
  *         description: Not Found
  */
-router.delete('/:id', protect, deleteOne);
+router.delete('/:id', authorize('accounts', 'delete'), deleteOne);
 
 
 

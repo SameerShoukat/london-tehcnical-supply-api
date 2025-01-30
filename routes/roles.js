@@ -7,37 +7,43 @@ const {
   getAll, 
   updateOne, 
   getOne,
-  deleteOne 
+  deleteOne,
+  getPermission 
 } = require('../controllers/roles');
 
-const { protect } = require('../middleware/auth');
+const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 
-const payloadSchema = Joi.object({
-  name: Joi.string().required().messages({
-    'any.required': 'Role name is required'
-  }),
+const permissionSchema = Joi.object({
   accounts: Joi.array().items(
     Joi.string().valid('read', 'manage', 'delete')
   ).optional().messages({
-    'any.only': 'Invalid account permission'  // Changed from 'any.valid'
+    'any.only': 'Invalid account permission'
   }),
   stocks: Joi.array().items(
     Joi.string().valid('read', 'manage', 'delete')
   ).optional().messages({
-    'any.only': 'Invalid stock permission'  // Fixed message and error key
+    'any.only': 'Invalid stock permission'  
   }),
   orders: Joi.array().items(
     Joi.string().valid('read', 'manage', 'delete')
   ).optional().messages({
-    'any.only': 'Invalid order permission'  // Fixed message and error key
+    'any.only': 'Invalid order permission'  
   }),
   finance: Joi.array().items(
     Joi.string().valid('read', 'manage', 'delete')
   ).optional().messages({
-    'any.only': 'Invalid finance permission'  // Fixed message and error key
+    'any.only': 'Invalid finance permission'  
   })
 });
+const payloadSchema = Joi.object({
+  name: Joi.string().required().messages({
+    'any.required': 'Role name is required'
+  }),
+  permissions : permissionSchema.required().messages({
+    'any.required': 'Permissions are required'
+  })
+})
 
 
 
@@ -96,7 +102,121 @@ const payloadSchema = Joi.object({
  *       404:
  *         description: Not Found
  */
-router.get('/all', protect, getAll);
+router.get('/all', authorize('account', 'view'), getAll);
+
+/**
+ * @openapi
+ * '/api/role/permission':
+ *  get:
+ *     tags:
+ *     - ROLE
+ *     summary: Get all permissions for role
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *       - in: query
+ *         name: pagination
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Name of the page to filter accounts
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   name:
+ *                     type: string
+ *                     example: "finance"
+ *                   accounts:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ['read', 'manage', 'delete']
+ *                   stocks:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ['read', 'manage', 'delete']
+ *                   orders:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ['read', 'manage', 'delete']
+ *                   finance:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ['read', 'manage', 'delete']
+ *       404:
+ *         description: Not Found
+ */
+router.get('/permission', authorize('account', 'view'), getPermission);
+
+/**
+* @openapi
+* '/api/role/all':
+*  get:
+*     tags:
+*     - ROLE
+*     summary: Get all roles
+*     security:
+*     - Bearer: []  # Reference to the security scheme
+*     parameters:
+*       - in: query
+*         name: pagination
+*         schema:
+*           type: string
+*         required: false
+*         description: Name of the page to filter accounts
+*     responses:
+*       200:
+*         description: Success
+*         content:
+*           application/json:
+*             schema:
+*               type: array
+*               items:
+*                 type: object
+*                 properties:
+*                   id:
+*                     type: string
+*                     example: "gdgdgdgdcbcbcb"
+*                   name:
+*                     type: string
+*                     example: "finance"
+*                   accounts:
+*                     type: array
+*                     items:
+*                       type: string
+*                     example: ['read', 'manage', 'delete']
+*                   stocks:
+*                     type: array
+*                     items:
+*                       type: string
+*                     example: ['read', 'manage', 'delete']
+*                   orders:
+*                     type: array
+*                     items:
+*                       type: string
+*                     example: ['read', 'manage', 'delete']
+*                   finance:
+*                     type: array
+*                     items:
+*                       type: string
+*                     example: ['read', 'manage', 'delete']
+*       404:
+*         description: Not Found
+*/
+router.get('/all', authorize('account', 'view'), getAll)
 
 /**
  * @openapi
@@ -153,7 +273,7 @@ router.get('/all', protect, getAll);
  *       404:
  *         description: Not Found
  */
-router.get('/:id', protect, getOne);
+router.get('/:id', authorize('account', 'view'), getOne);
 
 /**
  * @openapi
@@ -235,7 +355,7 @@ router.get('/:id', protect, getOne);
  *       404:
  *         description: Not Found
  */
-router.post('', protect, validateRequest(payloadSchema), create);
+router.post('', authorize('account', 'manage'), validateRequest(payloadSchema), create);
 
 /**
  * @openapi
@@ -324,7 +444,7 @@ router.post('', protect, validateRequest(payloadSchema), create);
  *       404:
  *         description: Not Found
  */
-router.put('/:id', protect, updateOne);
+router.put('/:id', authorize('account', 'manage'), updateOne);
 
 /**
  * @openapi
@@ -381,7 +501,7 @@ router.put('/:id', protect, updateOne);
  *       404:
  *         description: Not Found
  */
-router.delete('/:id', protect, deleteOne);
+router.delete('/:id', authorize('account', 'delete'), deleteOne);
 
 
 

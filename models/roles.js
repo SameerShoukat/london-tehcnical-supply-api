@@ -2,15 +2,6 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const { createSlug } = require('../utils/hook');
 
-const PERMISSION_LEVELS = ['read', 'manage', 'delete', 'none'];
-const USER_TYPES = ['admin', 'user'];
-
-// Reusable validation function for permission arrays
-const validatePermissionArray = (value) => {
-  if (value && !value.every(permission => PERMISSION_LEVELS.includes(permission))) {
-    throw new Error('Invalid permission level in array');
-  }
-};
 
 const Role = sequelize.define(
   'Role',
@@ -32,47 +23,13 @@ const Role = sequelize.define(
       type: DataTypes.STRING,
       unique: true,
     },
-    type: {
-      type: DataTypes.ENUM(...USER_TYPES),
-      defaultValue: 'user',
-      validate: {
-        isIn: [USER_TYPES],
-      },
-    },
-    accounts: {
-      type: DataTypes.ARRAY(DataTypes.ENUM(...PERMISSION_LEVELS)),
-      defaultValue: ['none'],
-      validate: {
-        isValidPermissionArray: validatePermissionArray,
-      },
-    },
-    stocks: {
-      type: DataTypes.ARRAY(DataTypes.ENUM(...PERMISSION_LEVELS)),
-      defaultValue: ['none'],
-      validate: {
-        isValidPermissionArray: validatePermissionArray,
-      },
-    },
-    orders: {
-      type: DataTypes.ARRAY(DataTypes.ENUM(...PERMISSION_LEVELS)),
-      defaultValue: ['none'],
-      validate: {
-        isValidPermissionArray: validatePermissionArray,
-      },
-    },
-    finance: {
-      type: DataTypes.ARRAY(DataTypes.ENUM(...PERMISSION_LEVELS)),
-      defaultValue: ['none'],
-      validate: {
-        isValidPermissionArray: validatePermissionArray,
-      },
-    },
-    deletedAt: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
+    permissions: {
+      type: DataTypes.JSON,
+      allowNull: false,
+    }
   },
   {
+    tableName : 'roles',
     paranoid: true, // Enables soft deletes
     timestamps: true, // Enables createdAt and updatedAt
     hooks: {
