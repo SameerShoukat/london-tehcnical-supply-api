@@ -2,17 +2,19 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const Category = require('./category');
-const {createSlug} = require("../utils/hook");
-
+const { createSlug } = require('../utils/hook');
+const User = require('./users');
 
 const SubCategory = sequelize.define('SubCategory', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     primaryKey: true,
-    autoIncrement: true
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false
   },
-  catId: { 
-    type: DataTypes.INTEGER,
+  catId: {
+    type: DataTypes.UUID,
+    allowNull: false,
     references: {
       model: Category,
       key: 'id'
@@ -23,26 +25,54 @@ const SubCategory = sequelize.define('SubCategory', {
   },
   slug: {
     type: DataTypes.STRING,
-    unique: true
+    unique: {
+      args: true,
+      msg : 'This name is already in use. Please choose a different one.'
+    }
+  },
+  images: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    allowNull: true,
+    validate: {
+      maxLength(value) {
+        if (value && value.length > 5) {
+          throw new Error('The image array cannot contain more than 5 images.');
+        }
+      }
+    }
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: User,
+      key: 'id'
+    }
   },
   status: {
     type: DataTypes.BOOLEAN,
+    defaultValue: true
   }
 }, {
+  tableName: 'subCategories',
+  paranoid: true, // Enables soft deletes
+  timestamps: true, // Enables createdAt and updatedAt
   hooks: {
-    beforeCreate: async (params) => {
-      params.slug = createSlug(params.name);    
+    beforeCreate(instance) {
+      instance.slug = createSlug(instance.name);
     },
-    beforeUpdate: async (params) => {
-      if (params.name) {
-        params.slug = createSlug(params.name);    
+    beforeUpdate(instance) {
+      if (instance.name) {
+        instance.slug = createSlug(instance.name);
       }
-    }
-  }
+    },
+  },
 });
 
+SubCategory.belongsTo(Category, { foreignKey: 'catId', as: 'category' });
+Category.hasMany(SubCategory, { foreignKey: 'catId' });
 
-SubCategory.belongsTo(Category);
-Category.hasMany(SubCategory);
+SubCategory.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(SubCategory, { foreignKey: 'userId' });
 
 module.exports = SubCategory;

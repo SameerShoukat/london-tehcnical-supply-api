@@ -1,33 +1,35 @@
-// models/user.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const bcrypt = require('bcryptjs');
-const Role = require('./role');
+const Role = require('./roles');
 
 const User = sequelize.define('User', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     primaryKey: true,
-    autoIncrement: true
+    defaultValue: DataTypes.UUIDV4, // This is correct
+    allowNull: false
   },
   firstName: {
     type: DataTypes.STRING,
-    allowNull : true
+    allowNull: true
   },
   lastName: {
     type: DataTypes.STRING,
-    allowNull : true
+    allowNull: true
   },
   email: {
     type: DataTypes.STRING,
-    unique: true,
     allowNull: false,
+    unique: {
+      args: true,
+      msg: 'This email is already in use. Please choose a different one.'
+    },
     validate: {
       isEmail: true
     }
   },
   roleId: {  // This is your foreign key
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     allowNull: false,
     references: {
       model: Role,
@@ -36,27 +38,20 @@ const User = sequelize.define('User', {
   },
   phone: {
     type: DataTypes.STRING,
-    unique: true,
     allowNull: true,
   },
   password: {
     type: DataTypes.STRING,
     allowNull: false
   }
-}, {
-  hooks: {
-    beforeCreate: async (user) => {
-      user.password = await bcrypt.hash(user.password, 10);
-    },
-    beforeUpdate: async (user) => {
-      if(user?.password){
-        user.password = await bcrypt.hash(user.password, 10);
-      }
-    }
-  }
+},
+{
+    tableName : 'users',
+    paranoid: true, // Enables soft deletes
+    timestamps: true, // Enables createdAt and updatedAt
 });
 
-User.belongsTo(Role);
-Role.hasMany(User);
 
+User.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
+Role.hasMany(User, { foreignKey: 'roleId' });  // `roleId` links Role to Users
 module.exports = User;

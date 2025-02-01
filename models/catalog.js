@@ -2,12 +2,14 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const {createSlug} = require("../utils/hook");
+const User = require('./users');
 
 const Catalog = sequelize.define('Catalog', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     primaryKey: true,
-    autoIncrement: true
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false
   },
   name: {
     type: DataTypes.STRING,
@@ -15,11 +17,13 @@ const Catalog = sequelize.define('Catalog', {
   },
   slug: {
     type: DataTypes.STRING,
-    unique: true
+    unique: {
+      args: true,
+      msg: 'This name is already in use. Please choose a different one.'
+    },
   },
   images: {
     type: DataTypes.ARRAY(DataTypes.STRING),
-    unique: true,
     allowNull: true,
     validate: {
       maxLength(value) {
@@ -29,21 +33,38 @@ const Catalog = sequelize.define('Catalog', {
       }
     }
   },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: User, 
+      key: 'id'
+    }
+  },
   status: {
     type: DataTypes.BOOLEAN,
-    defaultValue: true
-  }
-}, {
+    defaultValue : true
+  },
+
+},
+{
+  tableName : 'catalogs',
+  paranoid: true, // Enables soft deletes
+  timestamps: true, // Enables createdAt and updatedAt
   hooks: {
-    beforeCreate: async (params) => {
-      params.slug = createSlug(params.name);    
+    beforeCreate(instance) {
+      instance.slug = createSlug(instance.name);
     },
-    beforeUpdate: async (params) => {
-      if (params.name) {
-        params.slug = createSlug(params.name);    
+    beforeUpdate(instance) {
+      if (instance.name) {
+        instance.slug = createSlug(instance.name);
       }
-    }
-  }
-});
+    },
+  },
+}
+);
+
+Catalog.belongsTo(User, { foreignKey: 'userId', as: 'users' });
+User.hasMany(Catalog, { foreignKey: 'userId' });
 
 module.exports = Catalog;
