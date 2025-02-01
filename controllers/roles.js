@@ -7,41 +7,51 @@ const allPermissions = require('../models/perrmisions');
 
 // Create a new role
 const create = async (req, res, next) => {
-    try {
+  try {
+      const roleData = req.body;
+      // Check if the user exists (including soft-deleted ones)
+      const existingData = await Role.findOne({
+          paranoid: false,
+          where: { slug: createSlug(roleData.name) },
+      });
 
-        const roleData = req.body;
-        const ifRoleNameExist = await Role.findOne({ where: { slug: createSlug(roleData.name) }});
-        if (ifRoleNameExist) {
-            throw boom.conflict('Role already exists with this name');
-        }
+      if (existingData) {
+          if (existingData.deletedAt) {
+              // Restore soft-deleted role with new data
+              await existingData.restore();
+              // Update the existing role with new data
+              await existingData.update(roleData);
+              
+              return res.status(201).json(message(true, 'Role created successfully', existingData));
+          } else {
+              throw boom.conflict('Role already exists with this name');
+          }
+      }
 
-        if(roleData?.name?.toLowerCase() === 'admin'){
+      if (roleData?.name?.toLowerCase() === 'admin') {
           roleData.permissions = allPermissions;
-        }
-        
-        const role = await Role.create(roleData);
-        return res.status(201).json(message(true, 'Role created successfully', role));
+      }
+      
+      const role = await Role.create(roleData);
+      return res.status(201).json(message(true, 'Role created successfully', role));
 
-    } catch (error) {
+  } catch (error) {
       next(error);
-    }
+  }
 };
 
 // Get all roles with optional filtering
 const getAll = async (req, res, next) => {
   try {
 
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-
-    const whereClause = { deletedAt: null };
+    const { pagination = 1, limit = 10 } = req.query;
+    const offset = (parseInt(pagination, 10) - 1) * parseInt(limit, 10);
 
     // Get the total count of matching rows
-    const count = await Role.count({ where: whereClause });
+    const count = await Role.count();
 
     // Get the paginated rows
     const rows = await Role.findAll({
-      where: whereClause,
       order: [['createdAt', 'DESC']],
       limit: parseInt(limit, 10),
       offset,
@@ -60,10 +70,8 @@ const getAll = async (req, res, next) => {
 const getOne = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const role = await Role.findOne({id:id, deletedAt: null});
-
-        if (!role) throw boom.notFound(message(false, 'Role not found'));
-
+        const role = await Role.findByPk(id);
+        if (!role) throw boom.notFound('Role not found');
         return res.status(200).json(message(true, 'Role retrieved successfully', role));
     } catch (error) {
       next(error);
@@ -74,11 +82,15 @@ const getOne = async (req, res, next) => {
 const updateOne = async (req, res, next) => {
     try {
         const { id } = req.params;
+
+        console.log(id)
+
         const updateData = req.body;
         
-        const role = await Role.findOne({id:id, deletedAt: null});
-        if (!role) throw boom.notFound(message(false, 'Role not found'));
-        
+        const role = await Role.findByPk(id);
+        if (!role) throw boom.notFound('Role not found');
+
+        if(role?.slug === 'admin') throw boom.badRequest('You cannot update the admin role');
 
         // Update the role
         await role.update(updateData);
@@ -97,12 +109,12 @@ const deleteOne = async (req, res, next) => {
         const role = await Role.findByPk(id);
 
         if (!role) {
-            throw boom.notFound(message.notFound('Role'));
+            throw boom.notFound('Role not found');
         }
 
         if(role.name === 'admin') throw boom.badRequest('You cannot delete the admin role');
 
-        await role.update({ deletedAt: new Date() });
+        await role.destroy();
 
         return res.status(200).json(message(true, 'Role deleted successfully'));
     } catch (error) {

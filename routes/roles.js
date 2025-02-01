@@ -36,6 +36,7 @@ const permissionSchema = Joi.object({
     'any.only': 'Invalid finance permission'  
   })
 });
+
 const payloadSchema = Joi.object({
   name: Joi.string().required().messages({
     'any.required': 'Role name is required'
@@ -69,36 +70,37 @@ const payloadSchema = Joi.object({
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                     example: "gdgdgdgdcbcbcb"
- *                   name:
- *                     type: string
- *                     example: "finance"
- *                   accounts:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   stocks:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   orders:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   finance:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
+ *                 name:
+ *                   type: string
+ *                   example: Admin
+ *                 permissions:
+ *                   type: object
+ *                   properties:
+ *                     accounts:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage']
+ *                     stocks:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read']
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage', 'delete']
+ *                     finance:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'delete']
  *       404:
  *         description: Not Found
  */
@@ -126,36 +128,37 @@ router.get('/all', authorize('account', 'view'), getAll);
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                     example: "gdgdgdgdcbcbcb"
- *                   name:
- *                     type: string
- *                     example: "finance"
- *                   accounts:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   stocks:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   orders:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   finance:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
+ *                 name:
+ *                   type: string
+ *                   example: Admin
+ *                 permissions:
+ *                   type: object
+ *                   properties:
+ *                     accounts:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage']
+ *                     stocks:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read']
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage', 'delete']
+ *                     finance:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'delete']
  *       404:
  *         description: Not Found
  */
@@ -177,45 +180,46 @@ router.get('/permission', authorize('account', 'view'), getPermission);
 *           type: string
 *         required: false
 *         description: Name of the page to filter accounts
-*     responses:
-*       200:
-*         description: Success
-*         content:
-*           application/json:
-*             schema:
-*               type: array
-*               items:
-*                 type: object
-*                 properties:
-*                   id:
-*                     type: string
-*                     example: "gdgdgdgdcbcbcb"
-*                   name:
-*                     type: string
-*                     example: "finance"
-*                   accounts:
-*                     type: array
-*                     items:
-*                       type: string
-*                     example: ['read', 'manage', 'delete']
-*                   stocks:
-*                     type: array
-*                     items:
-*                       type: string
-*                     example: ['read', 'manage', 'delete']
-*                   orders:
-*                     type: array
-*                     items:
-*                       type: string
-*                     example: ['read', 'manage', 'delete']
-*                   finance:
-*                     type: array
-*                     items:
-*                       type: string
-*                     example: ['read', 'manage', 'delete']
-*       404:
-*         description: Not Found
-*/
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
+ *                 name:
+ *                   type: string
+ *                   example: Admin
+ *                 permissions:
+ *                   type: object
+ *                   properties:
+ *                     accounts:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage']
+ *                     stocks:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read']
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage', 'delete']
+ *                     finance:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'delete']
+ *       404:
+ *         description: Not Found
+ */
 router.get('/all', authorize('account', 'view'), getAll)
 
 /**
@@ -240,36 +244,37 @@ router.get('/all', authorize('account', 'view'), getAll)
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                     example: "gdgdgdgdcbcbcb"
- *                   name:
- *                     type: string
- *                     example: "finance"
- *                   accounts:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   stocks:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   orders:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   finance:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
+ *                 name:
+ *                   type: string
+ *                   example: Admin
+ *                 permissions:
+ *                   type: object
+ *                   properties:
+ *                     accounts:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage']
+ *                     stocks:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read']
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage', 'delete']
+ *                     finance:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'delete']
  *       404:
  *         description: Not Found
  */
@@ -292,74 +297,84 @@ router.get('/:id', authorize('account', 'view'), getOne);
  *             type: object
  *             required:
  *               - name
+ *               - permissions
  *             properties:
  *               name:
  *                 type: string
- *                 example: finance
- *               accounts:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ['read', 'manage', 'delete']
- *               stocks:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ['read', 'manage', 'delete']
- *               orders:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ['read', 'manage', 'delete']
- *               finance:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ['read', 'manage', 'delete']
+ *                 example: Admin
+ *               permissions:
+ *                 type: object
+ *                 properties:
+ *                   accounts:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       enum: ['read', 'manage', 'delete']
+ *                     example: ['read', 'manage']
+ *                   stocks:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       enum: ['read', 'manage', 'delete']
+ *                     example: ['read']
+ *                   orders:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       enum: ['read', 'manage', 'delete']
+ *                     example: ['read', 'manage', 'delete']
+ *                   finance:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       enum: ['read', 'manage', 'delete']
+ *                     example: ['read', 'delete']
  *     responses:
  *       200:
  *         description: Success
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                     example: "gdgdgdgdcbcbcb"
- *                   name:
- *                     type: string
- *                     example: "finance"
- *                   accounts:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   stocks:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   orders:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   finance:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
+ *                 name:
+ *                   type: string
+ *                   example: Admin
+ *                 permissions:
+ *                   type: object
+ *                   properties:
+ *                     accounts:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage']
+ *                     stocks:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read']
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage', 'delete']
+ *                     finance:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'delete']
  *       404:
  *         description: Not Found
  */
+
 router.post('', authorize('account', 'manage'), validateRequest(payloadSchema), create);
 
 /**
  * @openapi
- * '/api/users/{id}':
+ * '/api/role/{id}':
  *  put:
  *     tags:
  *     - ROLE
@@ -381,66 +396,75 @@ router.post('', authorize('account', 'manage'), validateRequest(payloadSchema), 
  *             type: object
  *             required:
  *               - name
+ *               - permissions
  *             properties:
  *               name:
  *                 type: string
- *                 example: finance
- *               accounts:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ['read', 'manage', 'delete']
- *               stocks:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ['read', 'manage', 'delete']
- *               orders:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ['read', 'manage', 'delete']
- *               finance:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ['read', 'manage', 'delete']
+ *                 example: Admin
+ *               permissions:
+ *                 type: object
+ *                 properties:
+ *                   accounts:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       enum: ['read', 'manage', 'delete']
+ *                     example: ['read', 'manage']
+ *                   stocks:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       enum: ['read', 'manage', 'delete']
+ *                     example: ['read']
+ *                   orders:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       enum: ['read', 'manage', 'delete']
+ *                     example: ['read', 'manage', 'delete']
+ *                   finance:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       enum: ['read', 'manage', 'delete']
+ *                     example: ['read', 'delete']
  *     responses:
  *       200:
  *         description: Success
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                     example: "gdgdgdgdcbcbcb"
- *                   name:
- *                     type: string
- *                     example: "finance"
- *                   accounts:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   stocks:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   orders:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   finance:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
+ *                 name:
+ *                   type: string
+ *                   example: Admin
+ *                 permissions:
+ *                   type: object
+ *                   properties:
+ *                     accounts:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage']
+ *                     stocks:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read']
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage', 'delete']
+ *                     finance:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'delete']
  *       404:
  *         description: Not Found
  */
@@ -468,36 +492,37 @@ router.put('/:id', authorize('account', 'manage'), updateOne);
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                     example: "gdgdgdgdcbcbcb"
- *                   name:
- *                     type: string
- *                     example: "finance"
- *                   accounts:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   stocks:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   orders:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   finance:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
+ *                 name:
+ *                   type: string
+ *                   example: Admin
+ *                 permissions:
+ *                   type: object
+ *                   properties:
+ *                     accounts:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage']
+ *                     stocks:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read']
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'manage', 'delete']
+ *                     finance:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ['read', 'delete']
  *       404:
  *         description: Not Found
  */

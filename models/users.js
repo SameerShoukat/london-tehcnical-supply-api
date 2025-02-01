@@ -1,6 +1,5 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const bcrypt = require('bcryptjs');
 const Role = require('./roles');
 
 const User = sequelize.define('User', {
@@ -20,8 +19,11 @@ const User = sequelize.define('User', {
   },
   email: {
     type: DataTypes.STRING,
-    unique: true,
     allowNull: false,
+    unique: {
+      args: true,
+      msg: 'This email is already in use. Please choose a different one.'
+    },
     validate: {
       isEmail: true
     }

@@ -28,6 +28,7 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/documentation', apiDocumentation);
 app.use('/api/user', require('./routes/users'));
 app.use('/api/role', require('./routes/roles'));
+app.use('/api/catalog', require('./routes/catalog'));
 
 // Error handling middleware
 app.use(errorMiddleware);

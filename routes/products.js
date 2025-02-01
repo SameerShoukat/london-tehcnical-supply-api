@@ -2,28 +2,25 @@
 const express = require('express');
 const router = express.Router();
 const { 
-  createProduct, 
-  getProducts, 
-  getProductById, 
-  updateProduct, 
-  deleteProduct 
-} = require('../controllers/products');
+  createCatalog, 
+  getCatalogs, 
+  getLogById, 
+  updateCatalog, 
+  deleteCatalog 
+} = require('../controllers/catalog');
 const { protect } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 const Joi = require('joi');
 
 // Validation schemas
-const productSchema = Joi.object({
-  name: Joi.string().required().min(3).max(100),
-  description: Joi.string().optional(),
-  price: Joi.number().positive().precision(2).required(),
-  stock: Joi.number().integer().min(0).required()
+const catalogSchema = Joi.object({
+  name: Joi.string().required().min(3).max(100)
 });
 
-router.post('/', protect, validateRequest(productSchema), createProduct);
-router.get('/', getProducts);
-router.get('/:id', getProductById);
-router.put('/:id', protect, validateRequest(productSchema), updateProduct);
-router.delete('/:id', protect, deleteProduct);
+router.post('/', protect, validateRequest(catalogSchema), createCatalog);
+router.get('/', getCatalogs);
+router.get('/:id', getLogById);
+router.put('/:id', protect, validateRequest(productSchema), updateCatalog);
+router.delete('/:id', protect, deleteCatalog);
 
 module.exports = router;

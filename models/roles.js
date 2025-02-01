@@ -21,7 +21,19 @@ const Role = sequelize.define(
     },
     slug: {
       type: DataTypes.STRING,
-      unique: true,
+      unique: {
+        args: true,
+        msg: 'This name is already in use. Please choose a different one.'
+      },
+      validate: {
+        notEmpty: {
+          msg: 'The name cannot be empty.'
+        },
+        len: {
+          args: [3, 50],
+          msg: 'The name be between 3 and 50 characters long.'
+        }
+      }
     },
     permissions: {
       type: DataTypes.JSON,

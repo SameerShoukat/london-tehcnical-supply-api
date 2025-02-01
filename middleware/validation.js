@@ -1,11 +1,11 @@
 const {message} = require("../utils/hook")
 
 
-const validateRequest = (schema) => {
+const validateRequest = (schema, formData = false) => {
   return (req, res, next) => {
     try {
       
-      const { error } = schema.validate(req.body, { 
+      const { error } = schema.validate(formData ? JSON.parse(req.body.data) : req.body, { 
         abortEarly: false,
         errors: { 
           wrap: { 

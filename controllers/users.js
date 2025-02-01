@@ -4,7 +4,6 @@ const User = require("../models/users");
 const Role = require("../models/roles");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
-const { where } = require('sequelize');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -49,8 +48,9 @@ const registerUser = async (req, res, next) => {
         const token = generateToken(existingUser.id);
         return res.status(201).json(message(true, 'User has been restored successfully', {
           id: existingUser.id,
-          firstName: existingUser.firstName,
-          lastName: existingUser.lastName,
+          firstName: firstName,
+          lastName: lastName,
+          roleId : roleId,
           email: existingUser.email,
           token,
         }));
@@ -166,8 +166,8 @@ const updateUserProfile = async (req, res, next) => {
 const getAll = async (req, res, next) => {
   try {
 
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const { pagination = 1, limit = 10 } = req.query;
+    const offset = (parseInt(pagination, 10) - 1) * parseInt(limit, 10);
 
     const whereClause = {  };
 

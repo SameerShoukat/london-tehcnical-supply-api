@@ -26,7 +26,7 @@ const options = {
       }
     },
 },
-  apis: ['./routes/users.js', './routes/roles.js'],
+  apis: ['./routes/users.js', './routes/roles.js',  './routes/catalog.js'],
 }
 
 const accountSpecs = swaggerJsdoc(options)

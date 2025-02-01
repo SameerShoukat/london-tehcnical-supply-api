@@ -77,7 +77,7 @@ const authorize = (module, action, allow) => {
       const cacheKey = decoded.id;
       const cachedUser = getUserFromCache(cacheKey);
       if (cachedUser) {
-        req.user = cachedUser;
+        req.user = cachedUser.toJSON();
         return handleAuthorization(req, res, next, module, action, allow);
       }
 
@@ -91,7 +91,7 @@ const authorize = (module, action, allow) => {
       tokenCache.set(cacheKey, userInfo);
       setTimeout(() => tokenCache.delete(cacheKey), CACHE_TTL);
 
-      req.user = userInfo;
+      req.user = userInfo.toJSON();
       return handleAuthorization(req, res, next, module, action, allow);
 
     } catch (error) {

@@ -1,25 +1,37 @@
-// models/=category.js
+// Description: This file contains the schema and model for the category.
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const {createSlug} = require("../utils/hook");
 const Catalog = require('./catalog');
+const User = require('./users');
 
 const Category = sequelize.define('Category', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     primaryKey: true,
-    autoIncrement: true
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false
+  },
+  catalogId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: Catalog, 
+      key: 'id'
+    }
   },
   name: {
     type: DataTypes.STRING,
   },
   slug: {
     type: DataTypes.STRING,
-    unique: true
+    unique: {
+      args: true,
+      msg : 'This name is already in use. Please choose a different one.'
+    }
   },
   images: {
     type: DataTypes.ARRAY(DataTypes.STRING),
-    unique: true,
     allowNull: true,
     validate: {
       maxLength(value) {
@@ -29,24 +41,41 @@ const Category = sequelize.define('Category', {
       }
     }
   },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: User,
+      key: 'id'
+    }
+  },
   status: {
     type: DataTypes.BOOLEAN,
     defaultValue : true
   }
-}, {
+},
+{
+  tableName : 'categories',
+  paranoid: true, // Enables soft deletes
+  timestamps: true, // Enables createdAt and updatedAt
   hooks: {
-    beforeCreate: async (params) => {
-      params.slug = createSlug(params.name);    
+    beforeCreate(instance) {
+      instance.slug = createSlug(instance.name);
     },
-    beforeUpdate: async (params) => {
-      if (params.name) {
-        params.slug = createSlug(params.name);    
+    beforeUpdate(instance) {
+      if (instance.name) {
+        instance.slug = createSlug(instance.name);
       }
-    }
-  }
-});
+    },
+  },
+}
+);
 
-Category.belongsTo(Catalog);
-Catalog.hasMany(Category);
+
+Category.belongsTo(Catalog, {foreignKey: 'catalogId', as: 'catalog'});
+Catalog.hasMany(Category, {foreignKey: 'catalogId'});
+
+Category.belongsTo(User, { foreignKey: 'userId', as: 'user'});
+User.hasMany(Category, { foreignKey: 'userId' });
 
 module.exports = Category;
