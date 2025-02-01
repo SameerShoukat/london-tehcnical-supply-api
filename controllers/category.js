@@ -2,10 +2,11 @@ const { createSlug } = require("../utils/hook");
 const _ = require("lodash");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
-const Catalog = require('../models/catalog');
+const Category = require('../models/category');
 const User = require('../models/users');
+const Catalog = require('../models/catalog');
 
-// Create a new catalog
+// Create a new category
 const create = async (req, res, next) => {
   try {
 
@@ -14,7 +15,7 @@ const create = async (req, res, next) => {
       payload['userId'] = req.user.id;
 
       // Check if the user exists (including soft-deleted ones)
-      const existingData = await Catalog.findOne({
+      const existingData = await Category.findOne({
           paranoid: false,
           where: { slug: createSlug(payload.name) },
       });
@@ -26,21 +27,21 @@ const create = async (req, res, next) => {
               // Update the existing with new data
               await existingData.update(payload);
               
-              return res.status(201).json(message(true, 'Catalog created successfully', existingData));
+              return res.status(201).json(message(true, 'Category created successfully', existingData));
           } else {
-              throw boom.conflict('Catalog already exists with this name');
+              throw boom.conflict('Category already exists with this name');
           }
       }
       
-      const catalog = await Catalog.create(payload);
-      return res.status(201).json(message(true, 'Catalog created successfully', catalog));
+      const category = await Category.create(payload);
+      return res.status(201).json(message(true, 'Category created successfully', category));
 
   } catch (error) {
       next(error);
   }
 };
 
-// Get all catalog with optional filtering
+// Get all category with optional filtering
 const getAll = async (req, res, next) => {
   try {
 
@@ -48,17 +49,17 @@ const getAll = async (req, res, next) => {
     const offset = (parseInt(pagination, 10) - 1) * parseInt(limit, 10);
 
     // Get the total count of matching rows
-    const count = await Catalog.count();
+    const count = await Category.count();
 
     // Get the paginated rows
-    const rows = await Catalog.findAll({
+    const rows = await Category.findAll({
       order: [['createdAt', 'DESC']],
       limit: parseInt(limit, 10),
       offset,
     });
 
 
-      return res.status(200).json(message(true, 'Catalog retrieved successfully', rows, count));
+      return res.status(200).json(message(true, 'Category retrieved successfully', rows, count));
 
   } catch (error) {
     next(error);
@@ -66,27 +67,32 @@ const getAll = async (req, res, next) => {
 };
 
 
-// Get a single catalog by ID
+// Get a single category by ID
 const getOne = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const catalog = await Catalog.findByPk(id,{
+        const category = await Category.findByPk(id,{
           include: [
             {
               model: User,
               as : 'user',
               attributes: ['id', 'firstName', 'lastName', 'email']
+            },
+            {
+              model: Catalog,
+              as : 'catalog',
+              attributes: ['id', 'name', 'images']
             }
           ]
         });
-        if (!catalog) throw boom.notFound('Catalog not found');
-        return res.status(200).json(message(true, 'Catalog retrieved successfully', catalog));
+        if (!category) throw boom.notFound('Category not found');
+        return res.status(200).json(message(true, 'Category retrieved successfully', category));
     } catch (error) {
       next(error);
     }
 };
 
-// Update a catalog by ID
+// Update a category by ID
 const updateOne = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -97,32 +103,32 @@ const updateOne = async (req, res, next) => {
 
         if(images.length > 0) payload.images = images;
         
-        const catalog = await Catalog.findByPk(id);
-        if (!catalog) throw boom.notFound('Catalog not found');
+        const category = await Category.findByPk(id);
+        if (!category) throw boom.notFound('Category not found');
 
-        // Update the catalog
-        await catalog.update(payload);
+        // Update the category
+        await category.update(payload);
 
-        return res.status(200).json(message(true, 'Catalog updated successfully', catalog));
+        return res.status(200).json(message(true, 'Category updated successfully', category));
 
     } catch (error) {
       next(error);
     }
 };
 
-// Delete a catalog by ID
+// Delete a category by ID
 const deleteOne = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const catalog = await Catalog.findByPk(id);
+        const category = await Category.findByPk(id);
 
-        if (!catalog) {
-            throw boom.notFound('Catalog not found');
+        if (!category) {
+            throw boom.notFound('Category not found');
         }
 
-        await catalog.destroy(); //soft deleted
+        await category.destroy(); //soft deleted
 
-        return res.status(200).json(message(true, 'Catalog deleted successfully'));
+        return res.status(200).json(message(true, 'Category deleted successfully'));
     } catch (error) {
       next(error);
     }
