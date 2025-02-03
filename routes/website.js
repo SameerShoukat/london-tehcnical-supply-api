@@ -7,25 +7,25 @@ const {
   updateOne,
   getOne,
   deleteOne
-} = require('../controllers/category');
+} = require('../controllers/website');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 const Joi = require('joi');
 
 // Validation schemas
-const categorySchema = Joi.object({
+const websiteSchema = Joi.object({
   name: Joi.string().required().min(3).max(100),
-  catalogId : Joi.string().required()
+  url: Joi.string().uri().required()
 });
 
 /**
  * @openapi
- * '/api/category':
+ * '/api/website':
  *  get:
  *     tags:
- *     - Category
- *     summary: Get all category
+ *     - Website
+ *     summary: Get all websites
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
@@ -34,7 +34,7 @@ const categorySchema = Joi.object({
  *         schema:
  *           type: string
  *         required: false
- *         description: Name of the page to filter category
+ *         description: Name of the page to filter websites
  *     responses:
  *       200:
  *         description: Success
@@ -46,36 +46,33 @@ const categorySchema = Joi.object({
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 catalogId:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
  *                 name:
  *                   type: string
  *                   example: ABCD
- *                 slug:
+ *                 url:
  *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
+ *                   example: https://abcd.com
+ *                 logo:
+ *                   type: string
+ *                   example: https://example.com/image.jpg
  *       404:
  *         description: Not Found
  */
 router.get('/', authorize('stock', 'view'), getAll);
 /**
  * @openapi
- * '/api/category/{id}':
+ * '/api/website/{id}':
  *  get:
  *     tags:
- *     - Category
- *     summary: Get category
+ *     - Website
+ *     summary: Get website
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the category
+ *       description: ID of the website
  *     responses:
  *       200:
  *         description: Success
@@ -87,18 +84,15 @@ router.get('/', authorize('stock', 'view'), getAll);
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 category:
- *                   type: object
- *                   example: {name: "ABCD"}
  *                 name:
  *                   type: string
  *                   example: ABCD
- *                 slug:
+ *                 url:
  *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
+ *                   example: https://abcd.com
+ *                 logo:
+ *                   type: string
+ *                   example: https://example.com/image.jpg
  *       404:
  *         description: Not Found
  */
@@ -106,11 +100,11 @@ router.get('/:id', authorize('stock', 'view'), getOne);
 
 /**
  * @openapi
- * '/api/category':
+ * '/api/website':
  *   post:
  *     tags:
- *       - Category
- *     summary: Create category
+ *       - Website
+ *     summary: Create website
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     requestBody:
@@ -122,14 +116,10 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *             properties:
  *               data:
  *                 type: string
- *                 example : {name: "ABCD", catalogId: "gdgdgdgdcbcbcb"}
- *               files:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *             minItems: 1  # Specify the minimum number of items (files) required
- *             maxItems: 5  # Specify the maximum number of items (files) allowed
+ *                 example : {name: "ABCD", url : "https://abcd.com"}
+ *               file:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       200:
  *         description: Success
@@ -141,36 +131,34 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 catalogId:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
  *                 name:
  *                   type: string
  *                   example: ABCD
- *                 slug:
+ *                 url:
  *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
+ *                   example: https://abcd.com
+ *                 logo:
+ *                   type: string
+ *                   example: https://example.com/image.jpg
  *       404:
  *         description: Not Found
  */
-router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validateRequest(categorySchema, true), create);
+router.post('/', authorize('stock', 'manage'), upload.single('file'), validateRequest(websiteSchema, true), create);
+
 /**
  * @openapi
- * '/api/category/{id}':
+ * '/api/website/{id}':
  *   put:
  *     tags:
- *       - Category
- *     summary: update category
+ *       - Website
+ *     summary: update website
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the category
+ *       description: ID of the website
  *       schema:
  *         type: string
  *     requestBody:
@@ -182,14 +170,10 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *             properties:
  *               data:
  *                 type: string
- *                 example : {name: "ABCD", catalogId: "gdgdgdgdcbcbcb"}
- *               files:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *             minItems: 1  # Specify the minimum number of items (files) required
- *             maxItems: 5  # Specify the maximum number of items (files) allowed
+ *                 example : {name: "ABCD", url : "https://abcd.com"}
+ *               file:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       200:
  *         description: Success
@@ -201,36 +185,34 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 catalogId:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
  *                 name:
  *                   type: string
  *                   example: ABCD
- *                 slug:
+ *                 url:
  *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
+ *                   example: https://abcd.com
+ *                 logo:
+ *                   type: string
+ *                   example: https://example.com/image.jpg
  *       404:
  *         description: Not Found
  */
-router.put('/:id', authorize("stock", "manage"), upload.array('files', 5), updateOne);
+router.put('/:id', authorize("stock", "manage"), upload.single('file'),  validateRequest(websiteSchema, true), updateOne);
+
 /**
  * @openapi
- * '/api/category/{id}':
+ * '/api/website/{id}':
  *   delete:
  *     tags:
- *       - Category
- *     summary: Delete category
+ *       - Website
+ *     summary: Delete website
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the category
+ *       description: ID of the website
  *       schema:
  *         type: string
  *     responses:

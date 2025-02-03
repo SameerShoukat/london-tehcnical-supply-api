@@ -30,6 +30,8 @@ app.use('/api/user', require('./routes/users'));
 app.use('/api/role', require('./routes/roles'));
 app.use('/api/catalog', require('./routes/catalog'));
 app.use('/api/category', require('./routes/category'));
+app.use('/api/subCategory', require('./routes/subCategory'));
+app.use('/api/website', require('./routes/website'));
 
 // Error handling middleware
 app.use(errorMiddleware);

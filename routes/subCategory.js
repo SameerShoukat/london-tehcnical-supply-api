@@ -7,25 +7,25 @@ const {
   updateOne,
   getOne,
   deleteOne
-} = require('../controllers/category');
+} = require('../controllers/subCategory');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 const Joi = require('joi');
 
 // Validation schemas
-const categorySchema = Joi.object({
+const subCategorySchema = Joi.object({
   name: Joi.string().required().min(3).max(100),
-  catalogId : Joi.string().required()
+  catId : Joi.string().required()
 });
 
 /**
  * @openapi
- * '/api/category':
+ * '/api/subCategory':
  *  get:
  *     tags:
- *     - Category
- *     summary: Get all category
+ *     - SubCategory
+ *     summary: Get all sub category
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
@@ -34,7 +34,7 @@ const categorySchema = Joi.object({
  *         schema:
  *           type: string
  *         required: false
- *         description: Name of the page to filter category
+ *         description: Name of the page to filter subCategory
  *     responses:
  *       200:
  *         description: Success
@@ -46,7 +46,7 @@ const categorySchema = Joi.object({
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 catalogId:
+ *                 catId:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
  *                 name:
@@ -64,18 +64,18 @@ const categorySchema = Joi.object({
 router.get('/', authorize('stock', 'view'), getAll);
 /**
  * @openapi
- * '/api/category/{id}':
+ * '/api/subCategory/{id}':
  *  get:
  *     tags:
- *     - Category
- *     summary: Get category
+ *     - SubCategory
+ *     summary: Get sub category
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the category
+ *       description: ID of the sub category
  *     responses:
  *       200:
  *         description: Success
@@ -87,7 +87,7 @@ router.get('/', authorize('stock', 'view'), getAll);
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 category:
+ *                 catId:
  *                   type: object
  *                   example: {name: "ABCD"}
  *                 name:
@@ -106,11 +106,11 @@ router.get('/:id', authorize('stock', 'view'), getOne);
 
 /**
  * @openapi
- * '/api/category':
+ * '/api/subCategory':
  *   post:
  *     tags:
- *       - Category
- *     summary: Create category
+ *       - SubCategory
+ *     summary: Create sub category
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     requestBody:
@@ -122,7 +122,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *             properties:
  *               data:
  *                 type: string
- *                 example : {name: "ABCD", catalogId: "gdgdgdgdcbcbcb"}
+ *                 example : {name: "ABCD", catId: "gdgdgdgdcbcbcb"}
  *               files:
  *                 type: array
  *                 items:
@@ -141,7 +141,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 catalogId:
+ *                 catId:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
  *                 name:
@@ -156,21 +156,21 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *       404:
  *         description: Not Found
  */
-router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validateRequest(categorySchema, true), create);
+router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validateRequest(subCategorySchema, true), create);
 /**
  * @openapi
- * '/api/category/{id}':
+ * '/api/subCategory/{id}':
  *   put:
  *     tags:
- *       - Category
- *     summary: update category
+ *       - SubCategory
+ *     summary: update sub category
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the category
+ *       description: ID of the sub category
  *       schema:
  *         type: string
  *     requestBody:
@@ -182,7 +182,7 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *             properties:
  *               data:
  *                 type: string
- *                 example : {name: "ABCD", catalogId: "gdgdgdgdcbcbcb"}
+ *                 example : {name: "ABCD", catId: "gdgdgdgdcbcbcb"}
  *               files:
  *                 type: array
  *                 items:
@@ -201,7 +201,7 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 catalogId:
+ *                 catId:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
  *                 name:
@@ -219,18 +219,18 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
 router.put('/:id', authorize("stock", "manage"), upload.array('files', 5), updateOne);
 /**
  * @openapi
- * '/api/category/{id}':
+ * '/api/subCategory/{id}':
  *   delete:
  *     tags:
- *       - Category
- *     summary: Delete category
+ *       - SubCategory
+ *     summary: Delete sub category
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the category
+ *       description: ID of the sub category
  *       schema:
  *         type: string
  *     responses:
