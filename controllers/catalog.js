@@ -128,11 +128,23 @@ const deleteOne = async (req, res, next) => {
     }
 };
 
+const catalogDropdown = async (req, res, next) => {
+  try {
+    const catalogs = await Catalog.findAll({
+      attributes: [['name', 'label'], ['id', 'value']]
+    });
+    return res.status(200).json(message(true, 'Dropdown retrieved successfully', catalogs));
+  } catch (error) {
+    next(error);
+  }
+}
+
 
 module.exports = {
     create,
     getAll,
     updateOne,
     getOne,
-    deleteOne
+    deleteOne,
+    catalogDropdown
 };

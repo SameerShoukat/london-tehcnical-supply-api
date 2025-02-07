@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/users');
-const Role = require('../models/roles');
 const { promisify } = require('util');
+const Permission = require('../models/permission');
 
 const verifyToken = promisify(jwt.verify);
 const tokenCache = new Map();
@@ -12,13 +12,15 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 const getUserFromCache = (cacheKey) => tokenCache.get(cacheKey);
 
+const deleteToken = (cacheKey) => tokenCache.delete(cacheKey);
+
 const fetchUserFromDB = async (decoded) => {
   return await User.findByPk(decoded.id, {
+    where : {status :  true},
     attributes: { exclude: ['password'] },
     include: [{
-      model: Role,
-      as: 'role',
-      attributes: ['name', 'permissions']
+      model: Permission,
+      as: 'permission',
     }]
   });
 };
@@ -36,11 +38,11 @@ const handleJWTError = (error, res) => {
 const handleAuthorization = (req, res, next, module, action, allow) => {
   const { user } = req;
 
-  if (user.role.name === 'admin' || allow === true) {
-    return next();
+  if (user.role === 'admin' || allow === true) {
+   return  next();
   }
-
-  const permissions = user.role?.permissions?.[module];
+  console.log(user)
+  const permissions = user.permission?.[module];
 
   if (!permissions) {
     return res.status(403).json({ 
@@ -83,7 +85,7 @@ const authorize = (module, action, allow) => {
 
   
       const userInfo = await fetchUserFromDB(decoded);
-
+  
       if (!userInfo) {
         return res.status(401).json({ message: 'User not found' });
       }
@@ -101,4 +103,4 @@ const authorize = (module, action, allow) => {
   };
 };
 
-module.exports = { authorize };
+module.exports = { authorize, deleteToken };

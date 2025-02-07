@@ -1,13 +1,17 @@
+const sequelize = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require("../models/users");
-const Role = require("../models/roles");
+const Permission = require("../models/permission");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
+const {generateRefreshToken, refreshAccessToken, revokeRefreshToken } = require("./refreshtoken")
+const {deleteToken} =  require("../middleware/auth")
+const { Op } = require('sequelize');
 
 // Generate JWT Token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 const getOneUser = async (where) => {
@@ -15,45 +19,71 @@ const getOneUser = async (where) => {
     where: where,
     attributes: { exclude: ['password']},
     include: [{
-      model: Role,
-      as: 'role',
-      attributes: ['name', 'permissions']
+      model: Permission,
+      as: 'permission'
     }]
   });
 }
 
 const filter = (user) =>{
   const updatedUser = user.toJSON();
-  delete updatedUser.role;
+  delete updatedUser.permission;
   return updatedUser
-
 }
 
 // @desc    Register a new user
 // @route   POST /api/users/register
 const registerUser = async (req, res, next) => {
+  const transaction = await sequelize.transaction(); // Start a transaction
   try {
-    const { firstName, lastName, roleId, email, password } = req.body;
+    const {
+      firstName = '',
+      lastName = '',
+      role = 'user',
+      permissions,
+      email,
+      password = '1234',
+    } = req.body;
 
     // Check if the user exists (including soft-deleted ones)
     const existingUser = await User.findOne({
-      paranoid: false,
+      paranoid: false, // Include soft-deleted users
       where: { email },
+      transaction,
     });
+
+    // Ensure permissions exist
+    const permission = await Permission.create(permissions, { transaction });
 
     if (existingUser) {
       if (existingUser.deletedAt) {
         // Restore soft-deleted user
-        existingUser.restore();
-        const token = generateToken(existingUser.id);
-        return res.status(201).json(message(true, 'User has been restored successfully', {
-          id: existingUser.id,
-          firstName: firstName,
-          lastName: lastName,
-          roleId : roleId,
-          email: existingUser.email,
-          token,
-        }));
+        await existingUser.restore({ transaction });
+        await existingUser.update(
+          {
+            firstName,
+            lastName,
+            role,
+            permissionId: permission.id,
+            password: await bcrypt.hash(password, 10),
+          },
+          { transaction }
+        );
+
+        // Reload user to ensure updates
+        await existingUser.reload({ transaction });
+
+        await transaction.commit(); // Commit the transaction
+        return res.status(201).json({
+          success: true,
+          message: 'User restored successfully',
+          data: {
+            role: existingUser.role,
+            firstName: existingUser.firstName,
+            lastName: existingUser.lastName,
+            email: existingUser.email
+          },
+        });
       } else {
         throw boom.conflict('A user with this email already exists.');
       }
@@ -63,29 +93,35 @@ const registerUser = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create a new user
-    const user = await User.create({
-      firstName,
-      lastName,
-      roleId,
-      email,
-      password: hashedPassword,
+    const user = await User.create(
+      {
+        firstName,
+        lastName,
+        email,
+        role,
+        permissionId: permission.id,
+        password: hashedPassword,
+      },
+      { transaction }
+    );
+
+    await transaction.commit(); // Commit the transaction
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+      },
     });
-
-    // Generate token
-    const token = generateToken(user.id);
-
-    res.status(201).json(message(true, 'User registered successfully', {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      token,
-    }));
   } catch (error) {
+    await transaction.rollback(); // Rollback the transaction on error
     next(error); // Pass error to global error handler
   }
 };
-
 
 // @desc    Authenticate user & get token
 // @route   POST /api/users/login
@@ -94,23 +130,23 @@ const loginUser = async (req, res, next) => {
     const { email, password } = req.body;
 
     // Find user by email
-    const user = await User.findOne({ where: { email}});
+    const user = await User.findOne({ where: { email, status : true}});
     if(!user) throw boom.notFound('User not found');
-
-    console.log(user)
-
     
     if (!bcrypt.compareSync(password, user.password)) throw boom.unauthorized(`Invalid password`);
 
-      // Generate token
-      const token = generateToken(user.id);
-      res.status(200).json(message(true, 'Login successful', {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        token,
-      }));
+    // Generate token
+    const token = generateToken(user.id);
+    const refreshToken = await generateRefreshToken(user.id);
+
+    res.status(200).json(message(true, 'Login successful', {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      authToken : token,
+      refreshToken
+    }));
 
   } catch (error) {
     next(error);
@@ -135,24 +171,35 @@ const getUserProfile = async (req, res, next) => {
 // @route   PUT /api/users/profile
 const updateUserProfile = async (req, res, next) => {
   try {
-    const userId = req.params.id ? req.params.id : req.user.id;
-   const user = await getOneUser({id : userId});
+    const userId = req.params.id || req.user.id;
+    const user = await getOneUser({ id: userId });
+
     if (!user) {
       throw boom.notFound('User not found');
     }
 
+
+    // Update permissions if provided
+    if (req.body.permissions) {
+      const permission = await Permission.findByPk(user.permissionId);
+      if (permission) {
+        await permission.update(req.body.permissions);
+      }
+    }
+
+    // Destructure body for cleaner updates
+    const { firstName, lastName, email, phone, password } = req.body;
+
     // Update fields
     const updatedFields = {
-      firstName: req.body.firstName || user.firstName,
-      lastName: req.body.lastName || user.lastName,
-      roleId: req.body.roleId || user.roleId,
-      email: req.body.email || user.email,
-      phone: req.body.phone || user.phone,
+      firstName: firstName || user.firstName,
+      lastName: lastName || user.lastName,
+      phone: phone || user.phone,
     };
 
     // Update password if provided
-    if (req.body.password) {
-      updatedFields.password = await bcrypt.hash(req.body.password, 10);
+    if (password) {
+      updatedFields.password = await bcrypt.hash(password, 10);
     }
 
     await user.update(updatedFields);
@@ -163,33 +210,31 @@ const updateUserProfile = async (req, res, next) => {
   }
 };
 
+// Assume User and Permission models are already imported
+
 const getAll = async (req, res, next) => {
   try {
 
-    const { pagination = 1, limit = 10 } = req.query;
-    const offset = (parseInt(pagination, 10) - 1) * parseInt(limit, 10);
+    const { offset = 0, pageSize = 10 } = req.query;
 
-    const whereClause = {  };
-
-    // Get the total count of matching rows
-    const count = await User.count({ where: whereClause });
+    // count
+    const count = await User.count();
 
     // Get the paginated rows
     const rows = await User.findAll({
-      where: whereClause,
       attributes: { exclude: ['password'] },
       order: [['createdAt', 'DESC']],
-      limit: parseInt(limit, 10),
+      limit: parseInt(pageSize, 10),
       offset,
     });
 
 
-      return res.status(200).json(message(true, 'Roles retrieved successfully', rows, count));
-
+    return res.status(200).json(message(true, 'Users retrieved successfully', rows, count))
   } catch (error) {
     next(error);
   }
 };
+
 
 
 // Get a single role by ID
@@ -207,8 +252,6 @@ const getOne = async (req, res, next) => {
 };
 
 // Update a role by ID
-
-
 const deleteOne = async (req, res, next) => {
   try {
       const { id } = req.params;
@@ -216,13 +259,74 @@ const deleteOne = async (req, res, next) => {
       const user = await getOneUser({id});
       if (!user) throw boom.notFound('User not found');
 
-      if(user?.role?.name === 'admin'){
+      if(user?.role === 'admin'){
         throw boom.badRequest('Admin cant be deleted');
       } 
 
       await user.destroy();
 
       return res.status(200).json(message(true, 'User deleted successfully'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const validateAccessToken = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    const response =  await refreshAccessToken(token)
+    return res.status(200).json({authToken  : response}); 
+} catch (error) {
+  next(error);
+}
+};
+
+const logout = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    const response =  await revokeRefreshToken(token)
+    return res.status(200).json(message(true, 'User log out')); 
+} catch (error) {
+  next(error);
+}
+};
+
+// @desc    Activate a user by ID
+// @route   PUT /api/users/:id/activate
+const activateUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const user = await getOneUser({ id });
+
+    if (!user) throw boom.notFound('User not found');
+    
+
+    await user.update({ status: true });
+    
+    deleteToken(id)
+
+    return res.status(200).json(message(true, 'User activated successfully', filter(user)));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Deactivate a user by ID
+// @route   PUT /api/users/:id/deactivate
+const deactivateUser = async (req, res, next) => {
+  try {
+
+    const { id } = req.params;
+    const user = await getOneUser({ id });
+
+    if (!user) throw boom.notFound('User not found');
+    if(user?.role === 'admin') throw boom.badRequest("Admin status cant be change")
+
+    await user.update({ status: false });
+
+    deleteToken(id)
+
+    return res.status(200).json(message(true, 'User deactivated successfully', filter(user)));
   } catch (error) {
     next(error);
   }
@@ -238,5 +342,9 @@ module.exports = {
   updateUserProfile,
   getAll,
   getOne,
-  deleteOne
+  validateAccessToken,
+  deleteOne,
+  logout,
+  activateUser,
+  deactivateUser,
 };

@@ -9,9 +9,16 @@ const User = require('../models/users');
 const create = async (req, res, next) => {
   try {
 
-      const payload =  typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
-      payload['logo'] = req?.file?.path || null;
-      payload['userId'] = req.user.id;
+        // Parse the incoming data
+      const payload = typeof req.body.data === 'string'
+        ? JSON.parse(req.body.data)
+        : req.body.data;
+  
+      // Attach the file path (if available) and userId to the payload
+      payload.logo = req.file ? req.file.path : null;
+      payload.userId = req.user.id;
+
+
 
       // Check if the user exists (including soft-deleted ones)
       const existingData = await Website.findOne({
@@ -44,21 +51,20 @@ const create = async (req, res, next) => {
 const getAll = async (req, res, next) => {
   try {
 
-    const { pagination = 1, limit = 10 } = req.query;
-    const offset = (parseInt(pagination, 10) - 1) * parseInt(limit, 10);
+    const { offset = 0, pageSize = 10 } = req.query;
 
-    // Get the total count of matching rows
+    // count
     const count = await Website.count();
 
     // Get the paginated rows
     const rows = await Website.findAll({
       order: [['createdAt', 'DESC']],
-      limit: parseInt(limit, 10),
+      limit: parseInt(pageSize, 10),
       offset,
     });
-    
-    return res.status(200).json(message(true, 'Website retrieved successfully', rows, count));
 
+
+    return res.status(200).json(message(true, 'Website retrieved successfully', rows, count))
   } catch (error) {
     next(error);
   }
@@ -90,19 +96,23 @@ const updateOne = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const images = req?.files?.length > 0  ? req.files.map(file => file.path) : [];
-        const payload =  typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
-        payload['userId'] = req.user.id;
+            // Parse the incoming data
+            const payload = typeof req.body.data === 'string'
+            ? JSON.parse(req.body.data)
+            : req.body.data;
 
-        if(images.length > 0) payload.logo = images;
+          // Attach the file path (if available) and userId to the payload
+          payload.logo = req.file ? req.file.path : null;
+          payload.userId = req.user.id;
+
         
         const website = await Website.findByPk(id);
-        if (!website) throw boom.notFound('Catalog not found');
+        if (!website) throw boom.notFound('Website not found');
 
         // Update the website
         await website.update(payload);
 
-        return res.status(200).json(message(true, 'Catalog updated successfully', website));
+        return res.status(200).json(message(true, 'Website updated successfully', website));
 
     } catch (error) {
       next(error);
@@ -116,12 +126,12 @@ const deleteOne = async (req, res, next) => {
         const website = await Website.findByPk(id);
 
         if (!website) {
-            throw boom.notFound('Catalog not found');
+            throw boom.notFound('Website not found');
         }
 
         await website.destroy(); //soft deleted
 
-        return res.status(200).json(message(true, 'Catalog deleted successfully'));
+        return res.status(200).json(message(true, 'Website deleted successfully'));
     } catch (error) {
       next(error);
     }
