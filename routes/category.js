@@ -6,7 +6,8 @@ const {
   getAll,
   updateOne,
   getOne,
-  deleteOne
+  deleteOne,
+  categoryDropdown
 } = require('../controllers/category');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
@@ -62,6 +63,37 @@ const categorySchema = Joi.object({
  *         description: Not Found
  */
 router.get('/', authorize('stock', 'view'), getAll);
+
+/**
+ * @openapi
+ * '/api/category/dropdown':
+ *  get:
+ *     tags:
+ *     - Catalog
+ *     summary: Get category dropdown
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   label:
+ *                     type: string
+ *                     example: ABCD
+ *                   value:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *       404:
+ *         description: Not Found
+ */
+router.get('/dropdown', authorize('stock', 'view'), categoryDropdown);
+
 /**
  * @openapi
  * '/api/category/{id}':
@@ -240,5 +272,7 @@ router.put('/:id', authorize("stock", "manage"), upload.array('files', 5), updat
  *         description: Not Found
  */
 router.delete('/:id', authorize("stock", "delete"), deleteOne);
+
+
 
 module.exports = router;

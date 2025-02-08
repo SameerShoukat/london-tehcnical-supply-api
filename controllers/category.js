@@ -44,21 +44,26 @@ const create = async (req, res, next) => {
 // Get all category with optional filtering
 const getAll = async (req, res, next) => {
   try {
-
-    const { pagination = 1, limit = 10 } = req.query;
-    const offset = (parseInt(pagination, 10) - 1) * parseInt(limit, 10);
-
+    
+    const { offset = 0, pageSize = 10 } = req.query;
+    
     // Get the total count of matching rows
     const count = await Category.count();
 
     // Get the paginated rows
     const rows = await Category.findAll({
-      order: [['createdAt', 'DESC']],
-      limit: parseInt(limit, 10),
-      offset,
-    });
-
-
+        include: [
+          {
+            model: Catalog,
+            as : 'catalog',
+            attributes: ['id', 'name']
+          }
+        ],
+        order: [['createdAt', 'DESC']],
+        limit: parseInt(pageSize, 10),
+        offset,
+      });
+  
       return res.status(200).json(message(true, 'Category retrieved successfully', rows, count));
 
   } catch (error) {
@@ -134,11 +139,24 @@ const deleteOne = async (req, res, next) => {
     }
 };
 
+const categoryDropdown = async (req, res, next) => {
+  try {
+    const category = await Category.findAll({
+      attributes: [['name', 'label'], ['id', 'value']]
+    });
+    return res.status(200).json(message(true, 'Dropdown retrieved successfully', category));
+  } catch (error) {
+    next(error);
+  }
+}
+
+
 
 module.exports = {
     create,
     getAll,
     updateOne,
     getOne,
-    deleteOne
+    deleteOne,
+    categoryDropdown
 };

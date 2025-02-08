@@ -46,16 +46,22 @@ const create = async (req, res, next) => {
 const getAll = async (req, res, next) => {
   try {
 
-    const { pagination = 1, limit = 10 } = req.query;
-    const offset = (parseInt(pagination, 10) - 1) * parseInt(limit, 10);
+    const { offset = 0, pageSize = 10 } = req.query;
 
     // Get the total count of matching rows
     const count = await SubCategory.count();
 
     // Get the paginated rows
     const rows = await SubCategory.findAll({
+      include: [
+        {
+          model: Category,
+          as : 'category',
+          attributes: ['id', 'name']
+        }
+      ],
       order: [['createdAt', 'DESC']],
-      limit: parseInt(limit, 10),
+      limit: parseInt(pageSize, 10),
       offset,
     });
 

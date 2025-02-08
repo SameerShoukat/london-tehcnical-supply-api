@@ -43,22 +43,22 @@ const create = async (req, res, next) => {
 // Get all catalog with optional filtering
 const getAll = async (req, res, next) => {
   try {
+    const { offset = 0, pageSize = 10 } = req.query;
 
-    const { pagination = 1, limit = 10 } = req.query;
-    const offset = (parseInt(pagination, 10) - 1) * parseInt(limit, 10);
-
-    // Get the total count of matching rows
+    // count
     const count = await Catalog.count();
 
     // Get the paginated rows
     const rows = await Catalog.findAll({
+      attributes: { exclude: ['password'] },
       order: [['createdAt', 'DESC']],
-      limit: parseInt(limit, 10),
+      limit: parseInt(pageSize, 10),
       offset,
     });
 
-
-      return res.status(200).json(message(true, 'Catalog retrieved successfully', rows, count));
+    
+    
+    return res.status(200).json(message(true, 'Catalog retrieved successfully', rows, count));
 
   } catch (error) {
     next(error);
