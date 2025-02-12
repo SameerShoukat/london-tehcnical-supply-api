@@ -35,6 +35,10 @@ app.use('/api/catalog', require('./routes/catalog'));
 app.use('/api/category', require('./routes/category'));
 app.use('/api/subCategory', require('./routes/subCategory'));
 app.use('/api/website', require('./routes/website'));
+app.use('/api/attribute', require('./routes/attributes'));
+
+app.use('/api/product', require('./routes/product'));
+
 
 // Error handling middleware
 app.use(errorMiddleware);

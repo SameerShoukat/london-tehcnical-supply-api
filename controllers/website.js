@@ -138,10 +138,25 @@ const deleteOne = async (req, res, next) => {
 };
 
 
+const websiteDropdown = async (req, res, next) => {
+  try {
+
+    const subCategory = await Website.findAll({
+      attributes: [['name', 'label'], ['id', 'value']],
+    });
+
+    return res.status(200).json(message(true, 'Dropdown retrieved successfully', subCategory));
+  } catch (error) {
+    next(error);
+  }
+}
+
+
 module.exports = {
     create,
     getAll,
     updateOne,
     getOne,
-    deleteOne
+    deleteOne,
+    websiteDropdown
 };

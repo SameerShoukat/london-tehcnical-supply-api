@@ -6,7 +6,8 @@ const {
   getAll,
   updateOne,
   getOne,
-  deleteOne
+  deleteOne,
+  subCategoryDropdown
 } = require('../controllers/subCategory');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
@@ -62,6 +63,45 @@ const subCategorySchema = Joi.object({
  *         description: Not Found
  */
 router.get('/', authorize('stock', 'view'), getAll);
+
+/**
+ * @openapi
+ * '/api/subCategory/dropdown':
+ *  get:
+ *     tags:
+ *     - SubCategory
+ *     summary: Get sub category dropdown
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *       - in: query
+ *         name: catId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: ID of the category to filter subCategory
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   label:
+ *                     type: string
+ *                     example: ABCD
+ *                   value:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *       404:
+ *         description: Not Found
+ */
+router.get('/dropdown', authorize('stock', 'view'), subCategoryDropdown);
+
+
 /**
  * @openapi
  * '/api/subCategory/{id}':

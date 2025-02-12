@@ -1,11 +1,11 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const { createSlug } = require("../utils/hook");
-const Category = require('./category');
-const SubCategory = require('./subCategory');
-const User = require('./user');
-const Catalog = require('./catalog');
-const Website = require('./website');
+const sequelize = require('../../config/database');
+const { createSlug } = require("../../utils/hook");
+const Category = require('../category');
+const SubCategory = require('../subCategory');
+const User = require('../users');
+const Catalog = require('../catalog');
+const Website = require('../website');
 
 const MAX_STOCK = 999999;
 
@@ -13,9 +13,13 @@ const PRODUCT_STATUS = {
     ACTIVE: 'active',
     INACTIVE: 'inactive',
     DRAFT: 'draft',
-    DISCONTINUED: 'discontinued'
+    DISCONTINUED: 'discontinued',
+    PUBLISH : 'publish'
 };
   
+
+const currency = ['USD', 'AED', 'GBP'];
+
 const Product = sequelize.define('Product', {
     id: {
       type: DataTypes.UUID,
@@ -26,6 +30,20 @@ const Product = sequelize.define('Product', {
     itemId: {
       type: DataTypes.STRING,
       unique: true
+    },
+    costPriceCurrency: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isIn: [currency]
+      },
+    },
+    costPrice: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      validate: {
+        min: 0
+      }
     },
     sku: {
       type: DataTypes.STRING,
@@ -56,15 +74,6 @@ const Product = sequelize.define('Product', {
             throw new Error('Maximum of 5 images allowed');
           }
         },
-        isValidUrls(value) {
-          if (value) {
-            const urlRegex = /^https?:\/\/.+\.(jpg|jpeg|png|webp)$/i;
-            const invalidUrls = value.filter(url => !urlRegex.test(url));
-            if (invalidUrls.length > 0) {
-              throw new Error('Invalid image URLs detected');
-            }
-          }
-        }
       },
       comment: 'Array of product image URLs'
     },
@@ -109,15 +118,15 @@ const Product = sequelize.define('Product', {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'catalogs',
+        model: Catalog,
         key: 'id'
       }
     },
-    categoryId: {
+    catId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'categories',
+        model: Category,
         key: 'id'
       }
     },
@@ -125,7 +134,7 @@ const Product = sequelize.define('Product', {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'sub_categories',
+        model: SubCategory,
         key: 'id'
       }
     },
@@ -133,7 +142,7 @@ const Product = sequelize.define('Product', {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'websites',
+        model: Website,
         key: 'id'
       }
     },
@@ -141,7 +150,7 @@ const Product = sequelize.define('Product', {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'users',
+        model: User,
         key: 'id'
       }
     }
@@ -155,13 +164,18 @@ const Product = sequelize.define('Product', {
       { fields: ['itemId'] },
       { fields: ['status'] },
       { fields: ['catalogId'] },
-      { fields: ['categoryId'] },
+      { fields: ['catId'] },
       { fields: ['subCategoryId'] },
       { fields: ['websiteId'] }
     ],
     hooks: {
       beforeCreate: (product) => {
-        product.slug = createSlug(product.name);
+        if (product.name) {
+          product.slug = createSlug(product.name);
+        }
+        if (!product.inStock) {
+          product.inStock = product.totalStock;
+        }
       },
       beforeUpdate: (product) => {
         if (product.changed('name')) {
@@ -190,6 +204,6 @@ Website.hasMany(Product, {foreignKey: 'websiteId'});
 Product.belongsTo(User, {foreignKey: 'userId', as: 'user'});
 User.hasMany(Product, {foreignKey: 'userId'});
 
-module.exports = Product
+module.exports = {Product, PRODUCT_STATUS}
 
   

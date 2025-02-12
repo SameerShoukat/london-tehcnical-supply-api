@@ -69,10 +69,17 @@ router.get('/', authorize('stock', 'view'), getAll);
  * '/api/category/dropdown':
  *  get:
  *     tags:
- *     - Catalog
+ *     - Category
  *     summary: Get category dropdown
  *     security:
  *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *       - in: query
+ *         name: catalogId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter categories by catalogId
  *     responses:
  *       200:
  *         description: Success

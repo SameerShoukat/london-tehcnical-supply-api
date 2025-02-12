@@ -7,26 +7,25 @@ const {
   updateOne,
   getOne,
   deleteOne,
-  websiteDropdown
-} = require('../controllers/website');
+  attributeDropdown
+} = require('../controllers/attribute');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 const Joi = require('joi');
 
 // Validation schemas
-const websiteSchema = Joi.object({
-  name: Joi.string().required().min(3).max(100),
-  url: Joi.string().uri().required()
+const attributeSchema = Joi.object({
+  name: Joi.string().required().min(3).max(100)
 });
 
 /**
  * @openapi
- * '/api/website':
+ * '/api/attribute':
  *  get:
  *     tags:
- *     - Website
- *     summary: Get all websites
+ *     - Attribute
+ *     summary: Get all attributes
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
@@ -35,7 +34,7 @@ const websiteSchema = Joi.object({
  *         schema:
  *           type: string
  *         required: false
- *         description: Name of the page to filter websites
+ *         description: Name of the page to filter attributes
  *     responses:
  *       200:
  *         description: Success
@@ -50,25 +49,21 @@ const websiteSchema = Joi.object({
  *                 name:
  *                   type: string
  *                   example: ABCD
- *                 url:
+ *                 slug:
  *                   type: string
- *                   example: https://abcd.com
- *                 logo:
- *                   type: string
- *                   example: https://example.com/image.jpg
+ *                   example: ABCD
  *       404:
  *         description: Not Found
  */
 router.get('/', authorize('stock', 'view'), getAll);
 
-
 /**
  * @openapi
- * '/api/website/dropdown':
+ * '/api/attribute/dropdown':
  *  get:
  *     tags:
- *     - Category
- *     summary: Get website dropdown
+ *     - Attribute
+ *     summary: Get attribute dropdown
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     responses:
@@ -90,23 +85,22 @@ router.get('/', authorize('stock', 'view'), getAll);
  *       404:
  *         description: Not Found
  */
-router.get('/dropdown', authorize('stock', 'view'), websiteDropdown);
-
+router.get('/dropdown', authorize('stock', 'view'), attributeDropdown);
 
 /**
  * @openapi
- * '/api/website/{id}':
+ * '/api/attribute/{id}':
  *  get:
  *     tags:
- *     - Website
- *     summary: Get website
+ *     - Attribute
+ *     summary: Get attribute
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the website
+ *       description: ID of the attribute
  *     responses:
  *       200:
  *         description: Success
@@ -121,12 +115,9 @@ router.get('/dropdown', authorize('stock', 'view'), websiteDropdown);
  *                 name:
  *                   type: string
  *                   example: ABCD
- *                 url:
+ *                 slug:
  *                   type: string
- *                   example: https://abcd.com
- *                 logo:
- *                   type: string
- *                   example: https://example.com/image.jpg
+ *                   example: ABCD
  *       404:
  *         description: Not Found
  */
@@ -134,26 +125,23 @@ router.get('/:id', authorize('stock', 'view'), getOne);
 
 /**
  * @openapi
- * '/api/website':
+ * '/api/attribute':
  *   post:
  *     tags:
- *       - Website
- *     summary: Create website
+ *       - Attribute
+ *     summary: Create attribute
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               data:
+ *               name:
  *                 type: string
- *                 example : {name: "ABCD", url : "https://abcd.com"}
- *               file:
- *                 type: string
- *                 format: binary
+ *                 example: "ABCD"
  *     responses:
  *       200:
  *         description: Success
@@ -167,47 +155,40 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                   example: "gdgdgdgdcbcbcb"
  *                 name:
  *                   type: string
- *                   example: ABCD
- *                 url:
+ *                   example: "ABCD"
+ *                 slug:
  *                   type: string
- *                   example: https://abcd.com
- *                 logo:
- *                   type: string
- *                   example: https://example.com/image.jpg
+ *                   example: "abcd"
  *       404:
  *         description: Not Found
  */
-router.post('/', authorize('stock', 'manage'), upload.single('file'), validateRequest(websiteSchema, true), create);
-
+router.post('/', authorize('stock', 'manage'), validateRequest(attributeSchema), create);
 /**
  * @openapi
- * '/api/website/{id}':
+ * '/api/attribute/{id}':
  *   put:
  *     tags:
- *       - Website
- *     summary: update website
+ *       - Attribute
+ *     summary: update attribute
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the website
+ *       description: ID of the attribute
  *       schema:
  *         type: string
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               data:
+ *               name:
  *                 type: string
- *                 example : {name: "ABCD", url : "https://abcd.com"}
- *               file:
- *                 type: string
- *                 format: binary
+ *                 example: "ABCD"
  *     responses:
  *       200:
  *         description: Success
@@ -221,40 +202,52 @@ router.post('/', authorize('stock', 'manage'), upload.single('file'), validateRe
  *                   example: "gdgdgdgdcbcbcb"
  *                 name:
  *                   type: string
- *                   example: ABCD
- *                 url:
+ *                   example: "ABCD"
+ *                 slug:
  *                   type: string
- *                   example: https://abcd.com
- *                 logo:
- *                   type: string
- *                   example: https://example.com/image.jpg
+ *                   example: "abcd"
  *       404:
  *         description: Not Found
  */
-router.put('/:id', authorize("stock", "manage"), upload.single('file'),  validateRequest(websiteSchema, true), updateOne);
-
+router.put('/:id', authorize("stock", "manage"), validateRequest(attributeSchema), updateOne);
 /**
  * @openapi
- * '/api/website/{id}':
+ * '/api/attribute/{id}':
  *   delete:
  *     tags:
- *       - Website
- *     summary: Delete website
+ *       - Attribute
+ *     summary: Delete attribute
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the website
+ *       description: ID of the attribute
  *       schema:
  *         type: string
  *     responses:
  *       200:
  *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
+ *                 name:
+ *                   type: string
+ *                   example: "ABCD"
+ *                 slug:
+ *                   type: string
+ *                   example: "abcd"
  *       404:
  *         description: Not Found
  */
 router.delete('/:id', authorize("stock", "delete"), deleteOne);
+
+
 
 module.exports = router;

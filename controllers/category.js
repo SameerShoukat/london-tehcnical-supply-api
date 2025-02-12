@@ -141,9 +141,19 @@ const deleteOne = async (req, res, next) => {
 
 const categoryDropdown = async (req, res, next) => {
   try {
+    const { catalogId } = req.query;
+
+
+    const whereClause = {};
+
+    if (catalogId) whereClause.catalogId = catalogId;
+
+    
     const category = await Category.findAll({
-      attributes: [['name', 'label'], ['id', 'value']]
+      attributes: [['name', 'label'], ['id', 'value']],
+      where: whereClause
     });
+    
     return res.status(200).json(message(true, 'Dropdown retrieved successfully', category));
   } catch (error) {
     next(error);

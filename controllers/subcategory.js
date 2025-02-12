@@ -142,10 +142,27 @@ const deleteOne = async (req, res, next) => {
 };
 
 
+const subCategoryDropdown = async (req, res, next) => {
+  try {
+    const { catId } = req.query;
+    const whereClause = catId ? { catId } : {};
+
+    const subCategory = await SubCategory.findAll({
+      attributes: [['name', 'label'], ['id', 'value']],
+      where: whereClause
+    });
+
+    return res.status(200).json(message(true, 'Dropdown retrieved successfully', subCategory));
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
     create,
     getAll,
     updateOne,
     getOne,
-    deleteOne
+    deleteOne,
+    subCategoryDropdown
 };

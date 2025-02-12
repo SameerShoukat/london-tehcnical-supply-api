@@ -18,7 +18,7 @@ const RefreshToken = sequelize.define('RefreshToken', {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: User, // Reference the User table
+        model: User,
         key: 'id',
       },
     },
@@ -31,7 +31,9 @@ const RefreshToken = sequelize.define('RefreshToken', {
     timestamps: false,
   });
 
-User.hasMany(RefreshToken, { foreignKey: 'userId', as : 'user', onDelete: 'CASCADE' });
-RefreshToken.belongsTo(User, { foreignKey: 'userId' });
+// Changed the alias to 'refreshTokens' for the hasMany relationship
+User.hasMany(RefreshToken, { foreignKey: 'userId', as: 'refreshTokens', onDelete: 'CASCADE' });
+// Added an alias 'user' only for the belongsTo relationship
+RefreshToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-module.exports = RefreshToken
+module.exports = RefreshToken;

@@ -1,6 +1,5 @@
 const { createSlug } = require("../utils/hook");
 const _ = require("lodash");
-const sequelize = require('../config/database');
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
 const {Product, PRODUCT_STATUS} = require('../models/products/index');
@@ -9,8 +8,6 @@ const Category = require('../models/category');
 const Website = require('../models/website');
 const SubCategory = require('../models/subCategory');
 const User = require('../models/users');
-const ProductAttribute = require("../models/products/product_attribute")
-const ProductPricing = require("../models/products/pricing")
 
 
 // Common error handler
@@ -42,19 +39,20 @@ const findProduct = async (id) => {
 };
 
 const create = async (req, res, next) => {
-  const transaction = await sequelize.transaction();
-  
   try {
     const payload = typeof req.body.data === 'string' 
       ? JSON.parse(req.body.data) 
       : req.body.data;
 
-    payload.userId = req.user.id;
-
+    // Handle image uploads
     if (req.files?.length > 0) {
       payload.images = req.files.map(file => file.path);
     }
-    
+
+    // Add user ID from authenticated session
+    payload.userId = req.user.id;
+
+    // Check for existing product (including soft-deleted)
     const slug = createSlug(payload.name);
     const existingProduct = await Product.findOne({
       paranoid: false,
@@ -63,60 +61,19 @@ const create = async (req, res, next) => {
 
     let product;
     if (existingProduct?.deletedAt) {
-      await existingProduct.restore({ transaction });
-
-      product = await existingProduct.update(payload, { transaction });
-  
-    } 
-    else if (existingProduct) {
+      // Restore and update soft-deleted product
+      await existingProduct.restore();
+      product = await existingProduct.update(payload);
+    } else if (existingProduct) {
       throw boom.conflict('Product already exists with this name');
-    } 
-    else {
-      // Create product
-      product = await Product.create(payload, { transaction });
-    }
-    const attributes = payload.attributes ||  [], pricing = payload.pricing || [];
-
-    // Create product attributes
-    if (attributes?.length > 0) {
-      await ProductAttribute.bulkCreate(
-        attributes.map(attr => ({
-          productId: product.id,
-          attributeId: attr.attrId,
-          value: attr.value
-        })),
-        { transaction }
-      );
+    } else {
+      // Create new product
+      product = await Product.create(payload);
     }
 
-    // Create product pricing
-    if (pricing?.length > 0) {
-      await ProductPricing.bulkCreate(
-        pricing.map(price => ({
-          productId: product.id,
-          currency : price.currency,
-          discountType : price.discountType,
-          discountValue : price.discountValue,
-          basePrice : price.basePrice,
-        })),
-        { transaction }
-      );
-    }
-
-    // Fetch the complete product with associations
-    const completeProduct = await Product.findByPk(product.id, {
-      include: [
-        { model: ProductAttribute, as: 'productAttributes', include: ['attribute'] },
-        { model: ProductPricing, as: 'productPricing' }
-      ],
-      transaction
-    });
-
-    await transaction.commit();
-    return res.status(201).json(message(true, 'Product created successfully', completeProduct));
+    return res.status(201).json(message(true, 'Product created successfully', product));
   } catch (error) {
-    await transaction.rollback();
-    next(error);
+    handleError(error, next);
   }
 };
 
@@ -156,16 +113,55 @@ const getAll = async (req, res, next) => {
     ];
 
 
+    console.log("Product retrieved successful")
+
     // Get products with pagination
     const { count, rows } = await Product.findAndCountAll({
       where,
       pageSize,
       offset,
-      order
+      order,
+      include: [
+        { 
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        },
+        {
+          model: SubCategory,
+          as: 'subCategory',
+          attributes: ['id', 'name']
+        },
+        { 
+            model: Catalog,
+            as: 'catalog',
+            attributes: ['id', 'name']
+          },
+          {
+            model: Website,
+            as: 'website',
+            attributes: ['id', 'name']
+          },
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'email']
+          }
+      ]
     });
 
+    const totalPages = Math.ceil(count / pageSize);
+    const currentPage = page;
 
-    return res.status(200).json(message(true, 'Products retrieved successfully', rows, count));
+    return res.status(200).json(message(true, 'Products retrieved successfully', {
+      products: rows,
+      pagination: {
+        totalItems: count,
+        totalPages,
+        currentPage,
+        pageSize
+      }
+    }));
   } catch (error) {
     handleError(error, next);
   }
@@ -175,23 +171,28 @@ const getOne = async (req, res, next) => {
   try {
     const product = await Product.findByPk(req.params.id, {
       include: [
-      {
-        model: ProductAttribute,
-        as: 'productAttributes',
-        attributes: ['attributeId', value]
-      },
-      {
-        model: ProductPricing,
-        as: 'productPricing',
-        attributes: ['currency', 'discountType', 'discountValue', 'basePrice', 'finalPrice']
-      }
+        { 
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Catalog,
+          as: 'catalog',
+          attributes: ['id', 'name']
+        },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name', 'email']
+        }
       ]
     });
 
     if (!product) {
       throw boom.notFound('Product not found');
     }
-    
+
     return res.status(200).json(message(true, 'Product retrieved successfully', product));
   } catch (error) {
     handleError(error, next);
