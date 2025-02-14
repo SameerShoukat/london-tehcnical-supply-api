@@ -45,10 +45,19 @@ const create = async (req, res, next) => {
   const transaction = await sequelize.transaction();
   
   try {
-    const payload = typeof req.body.data === 'string' 
+    const payloadData = typeof req.body.data === 'string' 
       ? JSON.parse(req.body.data) 
       : req.body.data;
 
+  
+
+   const payload = {
+      ...payloadData,
+      catalogId: payloadData.catalogId || null,
+      catId: payloadData.catId || null,
+      subCategoryId: payloadData.subCategoryId || null,
+      websiteId: payloadData.websiteId || null
+    };
     payload.userId = req.user.id;
 
     if (req.files?.length > 0) {
@@ -82,7 +91,7 @@ const create = async (req, res, next) => {
       await ProductAttribute.bulkCreate(
         attributes.map(attr => ({
           productId: product.id,
-          attributeId: attr.attrId,
+          attributeId: attr.attributeId,
           value: attr.value
         })),
         { transaction }
@@ -178,7 +187,7 @@ const getOne = async (req, res, next) => {
       {
         model: ProductAttribute,
         as: 'productAttributes',
-        attributes: ['attributeId', value]
+        attributes: ['attributeId', 'value']
       },
       {
         model: ProductPricing,
@@ -199,18 +208,102 @@ const getOne = async (req, res, next) => {
 };
 
 const updateOne = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  
   try {
-    const product = await findProduct(req.params.id);
-    
-    // Handle image updates if files are present
-    if (req.files?.length > 0) {
-      req.body.images = req.files.map(file => file.path);
+    const { id } = req.params;
+    const payload = typeof req.body.data === 'string' 
+      ? JSON.parse(req.body.data) 
+      : req.body.data;
+
+    // Find existing product
+    const existingProduct = await Product.findByPk(id);
+    if (!existingProduct) {
+      throw boom.notFound('Product not found');
     }
 
-    const updatedProduct = await product.update(req.body);
-    return res.status(200).json(message(true, 'Product updated successfully', updatedProduct));
+    // If name is being changed, check for slug conflicts
+    if (payload.name && payload.name !== existingProduct.name) {
+      const slug = createSlug(payload.name);
+      const slugExists = await Product.findOne({
+        where: { 
+          slug,
+          id: { [Op.ne]: id } // Exclude current product
+        }
+      });
+      
+      if (slugExists) {
+        throw boom.conflict('Product already exists with this name');
+      }
+    }
+
+    // Handle image updates
+    if (req.files?.length > 0) {
+      payload.images = req.files.map(file => file.path);
+    }
+
+    // Update main product
+    await existingProduct.update(payload, { transaction });
+
+    // Handle attributes update
+    if (payload.attributes) {
+      // Delete existing attributes
+      await ProductAttribute.destroy({
+        where: { productId: id },
+        transaction
+      });
+
+      // Create new attributes
+      if (payload.attributes.length > 0) {
+        await ProductAttribute.bulkCreate(
+          payload.attributes.map(attr => ({
+            productId: id,
+            attributeId: attr.attributeId,
+            value: attr.value
+          })),
+          { transaction }
+        );
+      }
+    }
+
+    // Handle pricing update
+    if (payload.pricing) {
+      // Delete existing pricing
+      await ProductPricing.destroy({
+        where: { productId: id },
+        transaction
+      });
+
+      // Create new pricing
+      if (payload.pricing.length > 0) {
+        await ProductPricing.bulkCreate(
+          payload.pricing.map(price => ({
+            productId: id,
+            currency: price.currency,
+            discountType: price.discountType,
+            discountValue: price.discountValue,
+            basePrice: price.basePrice,
+          })),
+          { transaction }
+        );
+      }
+    }
+
+    // Fetch updated product with associations
+    const updatedProduct = await Product.findByPk(id, {
+      include: [
+        { model: ProductAttribute, as: 'productAttributes', include: ['attribute'] },
+        { model: ProductPricing, as: 'productPricing' }
+      ],
+      transaction
+    });
+
+    await transaction.commit();
+    return res.json(message(true, 'Product updated successfully', updatedProduct));
+
   } catch (error) {
-    handleError(error, next);
+    await transaction.rollback();
+    next(error);
   }
 };
 

@@ -70,6 +70,6 @@ const User = sequelize.define('User', {
 });
 
 User.belongsTo(Permission, { foreignKey: 'permissionId', as: 'permission' });
-Permission.hasOne(User, { foreignKey: 'permissionId' });
+Permission.hasOne(User, { foreignKey: 'permissionId', onDelete: 'CASCADE' });
 
 module.exports = User;

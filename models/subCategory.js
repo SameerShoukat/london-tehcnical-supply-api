@@ -70,7 +70,7 @@ const SubCategory = sequelize.define('SubCategory', {
 });
 
 SubCategory.belongsTo(Category, { foreignKey: 'catId', as: 'category' });
-Category.hasMany(SubCategory, { foreignKey: 'catId' });
+Category.hasMany(SubCategory, { foreignKey: 'catId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 
 SubCategory.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(SubCategory, { foreignKey: 'userId' });

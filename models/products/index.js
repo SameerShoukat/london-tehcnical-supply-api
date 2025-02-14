@@ -10,15 +10,12 @@ const Website = require('../website');
 const MAX_STOCK = 999999;
 
 const PRODUCT_STATUS = {
-    ACTIVE: 'active',
-    INACTIVE: 'inactive',
-    DRAFT: 'draft',
-    DISCONTINUED: 'discontinued',
-    PUBLISH : 'publish'
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  DRAFT: 'draft',
+  DISCONTINUED: 'discontinued',
+  PUBLISH : 'publish'
 };
-  
-
-const currency = ['USD', 'AED', 'GBP'];
 
 const Product = sequelize.define('Product', {
     id: {
@@ -26,24 +23,6 @@ const Product = sequelize.define('Product', {
       primaryKey: true,
       defaultValue: DataTypes.UUIDV4,
       allowNull: false
-    },
-    itemId: {
-      type: DataTypes.STRING,
-      unique: true
-    },
-    costPriceCurrency: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        isIn: [currency]
-      },
-    },
-    costPrice: {
-      type: DataTypes.DECIMAL(12, 2),
-      allowNull: false,
-      validate: {
-        min: 0
-      }
     },
     sku: {
       type: DataTypes.STRING,
@@ -116,7 +95,7 @@ const Product = sequelize.define('Product', {
     // Foreign Keys
     catalogId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: Catalog,
         key: 'id'
@@ -124,7 +103,7 @@ const Product = sequelize.define('Product', {
     },
     catId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: Category,
         key: 'id'
@@ -132,7 +111,7 @@ const Product = sequelize.define('Product', {
     },
     subCategoryId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: SubCategory,
         key: 'id'
@@ -140,7 +119,7 @@ const Product = sequelize.define('Product', {
     },
     websiteId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: Website,
         key: 'id'
@@ -161,7 +140,6 @@ const Product = sequelize.define('Product', {
     indexes: [
       { unique: true, fields: ['slug'] },
       { unique: true, fields: ['sku'] },
-      { fields: ['itemId'] },
       { fields: ['status'] },
       { fields: ['catalogId'] },
       { fields: ['catId'] },
@@ -189,17 +167,17 @@ const Product = sequelize.define('Product', {
 });
 
 // Define associations
-Product.belongsTo(Catalog, {foreignKey: 'catalogId', as: 'catalog'});
-Catalog.hasMany(Product, {foreignKey: 'catalogId'});
+Product.belongsTo(Catalog, {foreignKey: 'catalogId', as: 'catalog', onDelete: 'SET NULL'});
+Catalog.hasMany(Product, {foreignKey: 'catalogId', onDelete: 'SET NULL'});
 
-Product.belongsTo(Category, {foreignKey: 'catId', as: 'category'});
-Category.hasMany(Product, {foreignKey: 'catId'});
+Product.belongsTo(Category, {foreignKey: 'catId', as: 'category', onDelete: 'SET NULL'});
+Category.hasMany(Product, {foreignKey: 'catId', onDelete: 'SET NULL'});
 
-Product.belongsTo(SubCategory, {foreignKey: 'subCatId', as: 'subCategory'});
-SubCategory.hasMany(Product, {foreignKey: 'subCatId'});
+Product.belongsTo(SubCategory, {foreignKey: 'subCatId', as: 'subCategory', onDelete: 'SET NULL'});
+SubCategory.hasMany(Product, {foreignKey: 'subCatId', onDelete: 'SET NULL'});
 
-Product.belongsTo(Website, {foreignKey: 'websiteId', as: 'website'});
-Website.hasMany(Product, {foreignKey: 'websiteId'});
+Product.belongsTo(Website, {foreignKey: 'websiteId', as: 'website',  onDelete: 'SET NULL'});
+Website.hasMany(Product, {foreignKey: 'websiteId', onDelete: 'SET NULL'});
 
 Product.belongsTo(User, {foreignKey: 'userId', as: 'user'});
 User.hasMany(Product, {foreignKey: 'userId'});
