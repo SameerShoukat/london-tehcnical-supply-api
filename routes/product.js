@@ -6,13 +6,13 @@ const {
   updateOne,
   getOne,
   deleteOne,
-  updateStatus
+  updateStatus,
+  productDropdown
 } = require('../controllers/product');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 const Joi = require('joi');
-
 
 const PRODUCT_STATUS = ['active','inactive','draft','discontinued', 'publish'];
 
@@ -51,9 +51,9 @@ const validationSchema = Joi.object({
   pricing: Joi.array().items(Joi.object({
     currency: Joi.string().valid('USD', 'AED', 'GBP').allow('').optional(),
     discountType: Joi.string().valid('percentage', 'fixed').allow('').optional(),
-    discountValue: Joi.string().optional(),
-    discountValue: Joi.string().optional(),
-    finalPrice: Joi.string().optional()
+    basePrice: Joi.number().optional(),
+    discountValue: Joi.number().optional(),
+    finalPrice: Joi.number().optional()
   })).optional()
 });
 
@@ -196,6 +196,43 @@ router.get('/', authorize('stock', 'view'), getAll);
 
 /**
  * @openapi
+ * '/api/product/dropdown':
+ *  get:
+ *     tags:
+ *     - Product
+ *     summary: Get product dropdown
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter product by search
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   label:
+ *                     type: string
+ *                     example: ABCD
+ *                   value:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *       404:
+ *         description: Not Found
+ */
+router.get('/dropdown', authorize('stock', 'view'), productDropdown);
+
+/**
+ * @openapi
  * '/api/product/{id}':
  *  get:
  *     tags:
@@ -287,7 +324,6 @@ router.get('/', authorize('stock', 'view'), getAll);
  *         description: Not Found
  */
 router.get('/:id', authorize('stock', 'view'), getOne);
-
 
 /**
  * @openapi
@@ -566,6 +602,9 @@ router.delete('/:id', authorize("stock", "delete"), deleteOne);
  *         description: Not Found
  */
 router.patch('/active/:id', authorize('stock', 'manage'), updateStatus);
+
+
+
 
 
 module.exports = router;

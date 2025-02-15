@@ -38,8 +38,8 @@ app.use('/api/website', require('./routes/website'));
 app.use('/api/attribute', require('./routes/attributes'));
 app.use('/api/vendor', require('./routes/vendor'));
 app.use('/api/purchase', require('./routes/purchase'));
-
 app.use('/api/product', require('./routes/product'));
+app.use('/api/constant', require('./routes/constant'));
 
 
 // Error handling middleware

@@ -1,8 +1,8 @@
 const _ = require("lodash");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
-const Purchase = require('../models/products/purchase');
-const Product = require('../models/products');
+const {Purchase} = require('../models/products/purchase');
+const {Product} = require('../models/products');
 const Vendor = require('../models/vendor');
 const User = require('../models/users');
 
@@ -33,13 +33,23 @@ const getAll = async (req, res, next) => {
 
     // Get the paginated rows
     const rows = await Purchase.findAll({
+      include: [
+        {
+          model: Product,
+          as: 'product',
+          attributes: ['id', 'name', 'sku'],
+        },
+        {
+          model: Vendor,
+          as: 'vendor',
+          attributes: ['id', 'email'],
+        }
+      ],
       order: [['createdAt', 'DESC']],
       limit: parseInt(pageSize, 10),
       offset,
     });
 
-    
-    
     return res.status(200).json(message(true, 'Purchase retrieved successfully', rows, count));
 
   } catch (error) {

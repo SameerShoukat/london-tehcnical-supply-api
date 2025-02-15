@@ -18,7 +18,7 @@ const vendorSchema = Joi.object({
     phone: Joi.string().required(),
     email: Joi.string().email().required(),
     companyName: Joi.string().required(),
-    address: Joi.string().optional(),
+    streetAddress: Joi.string().optional(),
     city: Joi.string().optional(),
     state: Joi.string().optional(),
     zipCode: Joi.string().optional(),
@@ -69,7 +69,7 @@ const vendorSchema = Joi.object({
  *                 companyName:
  *                   type: string
  *                   example: "Acme Corp"
- *                 address:
+ *                 streetAddress:
  *                   type: string
  *                   example: "123 Main St"
  *                 city:
@@ -167,7 +167,7 @@ router.get('/dropdown', authorize('stock', 'view'), vendorDropdown);
  *                 companyName:
  *                   type: string
  *                   example: "Acme Corp"
- *                 address:
+ *                 streetAddress:
  *                   type: string
  *                   example: "123 Main St"
  *                 city:
@@ -231,7 +231,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *               companyName:
  *                 type: string
  *                 example: "Acme Corp"
- *               address:
+ *               streetAddress:
  *                 type: string
  *                 example: "123 Main St"
  *               city:
@@ -330,7 +330,7 @@ router.post('/', authorize('stock', 'manage'),  validateRequest(vendorSchema), c
  *               companyName:
  *                 type: string
  *                 example: "Acme Corp"
- *               address:
+ *               streetAddress:
  *                 type: string
  *                 example: "123 Main St"
  *               city:

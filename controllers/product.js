@@ -182,20 +182,23 @@ const getAll = async (req, res, next) => {
 
 const getOne = async (req, res, next) => {
   try {
-    const product = await Product.findByPk(req.params.id, {
-      include: [
+    console.log(req.params.id)
+    const product = await Product.findByPk(req.params.id,
       {
-        model: ProductAttribute,
-        as: 'productAttributes',
-        attributes: ['attributeId', 'value']
-      },
-      {
-        model: ProductPricing,
-        as: 'productPricing',
-        attributes: ['currency', 'discountType', 'discountValue', 'basePrice', 'finalPrice']
+        include : [
+          {
+            model: ProductPricing,
+            as : 'productPricing',
+            attributes: ['currency', 'discountType', 'discountValue', 'basePrice']
+          },
+          {
+            model: ProductAttribute,
+            as : 'productAttributes',
+            attributes: ['attributeId', 'value']
+          }
+        ]
       }
-      ]
-    });
+    );
 
     if (!product) {
       throw boom.notFound('Product not found');
@@ -203,7 +206,7 @@ const getOne = async (req, res, next) => {
     
     return res.status(200).json(message(true, 'Product retrieved successfully', product));
   } catch (error) {
-    handleError(error, next);
+    next(error)
   }
 };
 
@@ -350,11 +353,36 @@ const updateStatus = async (req, res, next) => {
   }
 };
 
+const productDropdown = async (req, res, next) => {
+  try {
+    const { query } = req.query;
+
+    // Safest ORM approach with field concatenation
+    const products = await Product.findAll({
+      attributes: [
+        ['id', 'value'],
+        [sequelize.literal("sku || ' - ' || name"), 'label']
+      ],
+      where: query ? {
+        name: { [Op.iLike]: `%${query}%` } // Case-insensitive search
+      } : {},
+      order: [['name', 'ASC']] // Good practice for dropdowns
+    });
+
+    // Already in correct format { value: id, label: "SKU - Name" }
+    return res.status(200).json(message(true, 'Dropdown retrieved successfully', products));
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 module.exports = {
   create,
   getAll,
   updateOne,
   getOne,
   deleteOne,
-  updateStatus
+  updateStatus,
+  productDropdown
 };

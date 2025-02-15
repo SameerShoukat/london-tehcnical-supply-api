@@ -54,7 +54,7 @@ const Purchase = sequelize.define('Purchase', {
         }
     },
     status: {
-        type: DataTypes.ENUM(Object.values(PURCHASE_STATUS)),
+        type: DataTypes.STRING,
         defaultValue: PURCHASE_STATUS.PENDING,
         validate: {
           isIn: [Object.values(PURCHASE_STATUS)]

@@ -129,7 +129,7 @@ const deleteOne = async (req, res, next) => {
 const vendorDropdown = async (req, res, next) => {
   try {
     const vendors = await Vendor.findAll({
-      attributes: [['name', 'label'], ['id', 'value']]
+      attributes: [['email', 'label'], ['id', 'value']]
     });
     return res.status(200).json(message(true, 'Dropdown retrieved successfully', vendors));
   } catch (error) {

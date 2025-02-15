@@ -24,16 +24,16 @@ const Vendor = sequelize.define('Vendor', {
             isEmail: true
         }
     },
-    companyName: {
-        type: DataTypes.STRING,
-        allowNull: true,
-    },
     phone: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
             is: /^[0-9\-+\s]+$/ 
         }
+    },
+    companyName: {
+        type: DataTypes.STRING,
+        allowNull: true,
     },
     streetAddress: {
         type: DataTypes.STRING,

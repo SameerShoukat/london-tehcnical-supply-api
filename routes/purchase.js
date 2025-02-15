@@ -9,15 +9,17 @@ deleteOne
 } = require('../controllers/purchase.js');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
+const {PURCHASE_STATUS} = require("../models/products/purchase")
 
 // Validation schema
 const SUPPORTED_CURRENCIES = ['USD', 'AED', 'GBP'];
 
 const purchaseSchema = Joi.object({
     currency: Joi.string().required().valid(...SUPPORTED_CURRENCIES),
+    status: Joi.string().required().valid(...Object.values(PURCHASE_STATUS)),
     quantity: Joi.number().integer().min(1).max(999999).required(),
     costPrice: Joi.number().precision(2).min(0).required(),
-    purchaseId: Joi.string().uuid().required(),
+    vendorId: Joi.string().uuid().required(),
     productId: Joi.string().uuid().required(),
 });
 
@@ -284,7 +286,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *               - currency
  *               - quantity
  *               - costPrice
- *               - purchaseId
+ *               - vendorId
  *               - productId
  *             properties:
  *               currency:
@@ -304,7 +306,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                 minimum: 0
  *                 description: Decimal number greater than 0
  *                 example: 10.99
- *               purchaseId:
+ *               vendorId:
  *                 type: string
  *                 format: uuid
  *                 description: Valid UUID of existing purchase
@@ -345,7 +347,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                   minimum: 0
  *                   description: Decimal number greater than 0
  *                   example: 1090
- *                 purchaseId:
+ *                 vendorId:
  *                   type: string
  *                   format: uuid
  *                   description: Valid UUID of existing purchase
@@ -391,7 +393,7 @@ router.post('/', authorize('stock', 'manage'),  validateRequest(purchaseSchema),
  *               - currency
  *               - quantity
  *               - costPrice
- *               - purchaseId
+ *               - vendorId
  *               - productId
  *             properties:
  *               currency:
@@ -411,7 +413,7 @@ router.post('/', authorize('stock', 'manage'),  validateRequest(purchaseSchema),
  *                 minimum: 0
  *                 description: Decimal number greater than 0
  *                 example: 10.99
- *               purchaseId:
+ *               vendorId:
  *                 type: string
  *                 format: uuid
  *                 description: Valid UUID of existing purchase
@@ -452,7 +454,7 @@ router.post('/', authorize('stock', 'manage'),  validateRequest(purchaseSchema),
  *                   minimum: 0
  *                   description: Decimal number greater than 0
  *                   example: 1090
- *                 purchaseId:
+ *                 vendorId:
  *                   type: string
  *                   format: uuid
  *                   description: Valid UUID of existing purchase
