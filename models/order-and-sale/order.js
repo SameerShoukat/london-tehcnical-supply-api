@@ -67,7 +67,7 @@
 //           product.slug = createSlug(product.name);
 //         }
 //         if (!product.inStock) {
-//           product.inStock = product.totalStock;
+//           product.inStock = product.inStock;
 //         }
 //       },
 //       beforeUpdate: (product) => {

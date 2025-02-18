@@ -25,7 +25,8 @@ const {
   validateAccessToken,
   activateUser,
   deactivateUser,
-  logout
+  logout,
+  getMyPermission
 } = require('../controllers/users');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
@@ -218,6 +219,35 @@ router.get('/profile', authorize('', '', true), getUserProfile);
 
 /**
  * @openapi
+ * /api/user/permission:
+ *   get:
+ *     tags:
+ *       - USER
+ *     summary: Get user permission
+ *     security:
+ *       - Bearer: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                       accounts: ["read", "manage"]
+ *                       stocks: ["read"]
+ *                       orders: ["manage", "delete"]
+ *                       finance: ["read"]
+ *       404:
+ *         description: Not found
+ */
+
+router.get('/permission', authorize('', '', true), getMyPermission);
+
+/**
+ * @openapi
  * '/api/user/all':
  *  get:
  *     tags:
@@ -262,7 +292,7 @@ router.get('/profile', authorize('', '', true), getUserProfile);
  *       404:
  *         description: not found
  */
-router.get('/all', authorize('accounts', 'view'), getAll);
+router.get('/all', authorize('setting', 'view'), getAll);
 
 /**
  * @openapi
@@ -304,7 +334,7 @@ router.get('/all', authorize('accounts', 'view'), getAll);
  *       404:
  *         description: not found
  */
-router.get('/activate/:id', authorize('accounts', 'view'), activateUser);
+router.get('/activate/:id', authorize('setting', 'view'), activateUser);
 
 /**
  * @openapi
@@ -346,7 +376,7 @@ router.get('/activate/:id', authorize('accounts', 'view'), activateUser);
  *       404:
  *         description: not found
  */
-router.get('/deactivate/:id', authorize('accounts', 'view'), deactivateUser);
+router.get('/deactivate/:id', authorize('setting', 'view'), deactivateUser);
 
 /**
  * @openapi
@@ -388,7 +418,7 @@ router.get('/deactivate/:id', authorize('accounts', 'view'), deactivateUser);
  *       404:
  *         description: not found
  */
-router.get('/:id', authorize('accounts', 'view'), getOne);
+router.get('/:id', authorize('setting', 'view'), getOne);
 
 /**
  * @openapi
@@ -497,7 +527,7 @@ router.put('/profile', authorize('', '', true), updateUserProfile);
  *       404:
  *         description: not found
  */
-router.put('/:id', authorize('accounts', 'manage'), updateUserProfile);
+router.put('/:id', authorize('setting', 'manage'), updateUserProfile);
 
 /**
  * @openapi
@@ -539,7 +569,7 @@ router.put('/:id', authorize('accounts', 'manage'), updateUserProfile);
  *       404:
  *         description: not found
  */
-router.delete('/:id', authorize('accounts', 'delete'), deleteOne);
+router.delete('/:id', authorize('setting', 'delete'), deleteOne);
 
 /**
  * @openapi

@@ -59,7 +59,7 @@ const websiteSchema = Joi.object({
  *       404:
  *         description: Not Found
  */
-router.get('/', authorize('stock', 'view'), getAll);
+router.get('/', authorize('setting', 'view'), getAll);
 
 
 /**
@@ -90,8 +90,7 @@ router.get('/', authorize('stock', 'view'), getAll);
  *       404:
  *         description: Not Found
  */
-router.get('/dropdown', authorize('stock', 'view'), websiteDropdown);
-
+router.get('/dropdown', authorize('setting', 'view'), websiteDropdown);
 
 /**
  * @openapi
@@ -130,7 +129,7 @@ router.get('/dropdown', authorize('stock', 'view'), websiteDropdown);
  *       404:
  *         description: Not Found
  */
-router.get('/:id', authorize('stock', 'view'), getOne);
+router.get('/:id', authorize('setting', 'view'), getOne);
 
 /**
  * @openapi
@@ -177,7 +176,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *       404:
  *         description: Not Found
  */
-router.post('/', authorize('stock', 'manage'), upload.single('file'), validateRequest(websiteSchema, true), create);
+router.post('/', authorize('setting', 'manage'), upload.single('file'), validateRequest(websiteSchema, true), create);
 
 /**
  * @openapi
@@ -231,7 +230,7 @@ router.post('/', authorize('stock', 'manage'), upload.single('file'), validateRe
  *       404:
  *         description: Not Found
  */
-router.put('/:id', authorize("stock", "manage"), upload.single('file'),  validateRequest(websiteSchema, true), updateOne);
+router.put('/:id', authorize("setting", "manage"), upload.single('file'),  validateRequest(websiteSchema, true), updateOne);
 
 /**
  * @openapi
@@ -255,6 +254,6 @@ router.put('/:id', authorize("stock", "manage"), upload.single('file'),  validat
  *       404:
  *         description: Not Found
  */
-router.delete('/:id', authorize("stock", "delete"), deleteOne);
+router.delete('/:id', authorize("setting", "delete"), deleteOne);
 
 module.exports = router;

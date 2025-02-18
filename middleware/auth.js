@@ -37,11 +37,10 @@ const handleJWTError = (error, res) => {
 
 const handleAuthorization = (req, res, next, module, action, allow) => {
   const { user } = req;
-
+ 
   if (user.role === 'admin' || allow === true) {
    return  next();
   }
-  console.log(user)
   const permissions = user.permission?.[module];
 
   if (!permissions) {

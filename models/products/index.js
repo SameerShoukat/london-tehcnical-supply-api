@@ -69,28 +69,20 @@ const Product = sequelize.define('Product', {
       defaultValue: 1,
       allowNull: false
     },
-    totalStock: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0,
-        validate: {
-          min: 0,
-          max: MAX_STOCK
-        },
-        comment: 'Total available stock quantity'
-    },
     inStock: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
       validate: {
         min: 0,
-        max: MAX_STOCK,
-        stockCheck(value) {
-          if (value > this.totalStock) {
-            throw new Error('In stock cannot exceed total stock');
-          }
-        }
       },
-      comment: 'Current stock available for sale'
+      comment: 'Stock available for sale'
+    },
+    saleStock: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      validate: {
+        min: 0,
+      },
     },
     // Foreign Keys
     catalogId: {
@@ -149,18 +141,15 @@ const Product = sequelize.define('Product', {
     hooks: {
       beforeCreate: (product) => {
         if (product.name) {
-          product.slug = createSlug(product.name);
-        }
-        if (!product.inStock) {
-          product.inStock = product.totalStock;
+              product.slug = createSlug(product.name);
         }
       },
       beforeUpdate: (product) => {
         if (product.changed('name')) {
-          product.slug = createSlug(product.name);
+              product.slug = createSlug(product.name);
         }
         if (product.changed()) {
-          product.version += 1;
+              product.version += 1;
         }
       }
     }

@@ -11,7 +11,7 @@ const Permission = sequelize.define(
       defaultValue: DataTypes.UUIDV4,
       allowNull: false,
     },
-    accounts: {
+    setting: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
       validate: {
@@ -26,6 +26,20 @@ const Permission = sequelize.define(
       },
     },
     stocks: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+      validate: {
+        isValidArray(value) {
+          if (value) {
+            const validValues = ['view', 'manage', 'delete'];
+            if (!value.every(item => validValues.includes(item))) {
+              throw new Error('Stocks array can only contain "view", "manage", or "delete".');
+            }
+          }
+        },
+      },
+    },
+    purchase: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
       validate: {

@@ -104,7 +104,7 @@ const payloadSchema = Joi.object({
  *       404:
  *         description: Not Found
  */
-router.get('/all', authorize('account', 'view'), getAll);
+router.get('/all', authorize('setting', 'view'), getAll);
 
 /**
  * @openapi
@@ -162,7 +162,7 @@ router.get('/all', authorize('account', 'view'), getAll);
  *       404:
  *         description: Not Found
  */
-router.get('/permission', authorize('account', 'view'), getPermission);
+router.get('/permission', authorize('setting', 'view'), getPermission);
 
 /**
 * @openapi
@@ -220,7 +220,7 @@ router.get('/permission', authorize('account', 'view'), getPermission);
  *       404:
  *         description: Not Found
  */
-router.get('/all', authorize('account', 'view'), getAll)
+router.get('/all', authorize('setting', 'view'), getAll)
 
 /**
  * @openapi
@@ -278,7 +278,7 @@ router.get('/all', authorize('account', 'view'), getAll)
  *       404:
  *         description: Not Found
  */
-router.get('/:id', authorize('account', 'view'), getOne);
+router.get('/:id', authorize('setting', 'view'), getOne);
 
 /**
  * @openapi
@@ -370,7 +370,7 @@ router.get('/:id', authorize('account', 'view'), getOne);
  *         description: Not Found
  */
 
-router.post('', authorize('account', 'manage'), validateRequest(payloadSchema), create);
+router.post('', authorize('setting', 'manage'), validateRequest(payloadSchema), create);
 
 /**
  * @openapi
@@ -468,7 +468,7 @@ router.post('', authorize('account', 'manage'), validateRequest(payloadSchema), 
  *       404:
  *         description: Not Found
  */
-router.put('/:id', authorize('account', 'manage'), updateOne);
+router.put('/:id', authorize('setting', 'manage'), updateOne);
 
 /**
  * @openapi
@@ -526,7 +526,7 @@ router.put('/:id', authorize('account', 'manage'), updateOne);
  *       404:
  *         description: Not Found
  */
-router.delete('/:id', authorize('account', 'delete'), deleteOne);
+router.delete('/:id', authorize('setting', 'delete'), deleteOne);
 
 
 

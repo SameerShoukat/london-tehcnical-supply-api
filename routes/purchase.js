@@ -150,7 +150,7 @@ const purchaseSchema = Joi.object({
  *       500:
  *         description: Internal Server Error
  */
-router.get('/', authorize('stock', 'view'), getAll);
+router.get('/', authorize('purchase', 'view'), getAll);
 
 /**
  * @openapi
@@ -265,7 +265,7 @@ router.get('/', authorize('stock', 'view'), getAll);
  *       500:
  *         description: Internal Server Error
  */
-router.get('/:id', authorize('stock', 'view'), getOne);
+router.get('/:id', authorize('purchase', 'view'), getOne);
 
 /**
  * @openapi
@@ -365,7 +365,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *       404:
  *         description: Not Found
  */
-router.post('/', authorize('stock', 'manage'),  validateRequest(purchaseSchema), create);
+router.post('/', authorize('purchase', 'manage'),  validateRequest(purchaseSchema), create);
 
 /**
  * @openapi
@@ -472,7 +472,7 @@ router.post('/', authorize('stock', 'manage'),  validateRequest(purchaseSchema),
  *       404:
  *         description: Not Found
  */
-router.put('/:id', authorize("stock", "manage"),   validateRequest(purchaseSchema), updateOne);
+router.put('/:id', authorize("purchase", "manage"),   validateRequest(purchaseSchema), updateOne);
 
 /**
  * @openapi
@@ -496,6 +496,6 @@ router.put('/:id', authorize("stock", "manage"),   validateRequest(purchaseSchem
  *       404:
  *         description: Not Found
  */
-router.delete('/:id', authorize("stock", "delete"), deleteOne);
+router.delete('/:id', authorize("purchase", "delete"), deleteOne);
 
 module.exports = router;

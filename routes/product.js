@@ -31,7 +31,7 @@ const validationSchema = Joi.object({
     .messages({
       'string.empty': 'Product Sku is required'
     }),
-  totalStock: Joi.number().integer().allow(null).optional(),
+  inStock: Joi.number().integer().allow(null).optional(),
   catalogId: Joi.string().allow('', null).optional(),
   catId: Joi.string().allow('', null).optional(),
   websiteId: Joi.string().allow('', null).optional(),
@@ -145,7 +145,7 @@ const validationSchema = Joi.object({
  *                 description:
  *                   type: string
  *                   example: "Professional grade power tool with advanced features"
- *                 totalStock:
+ *                 inStock:
  *                   type: integer
  *                   example: 50
  *                 costPrice:
@@ -277,7 +277,7 @@ router.get('/dropdown', authorize('stock', 'view'), productDropdown);
  *                 description:
  *                   type: number
  *                   example: klfjjklfjklfgklfdjkldfjklfjkld klfdkdfjkldfjkl
- *                 totalStock:
+ *                 inStock:
  *                   type: number
  *                   example: 50
  *                 costPrice:
@@ -346,7 +346,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                 example: {
  *                   "name": "Power Drill X200",
  *                   "sku": "PDX200",
- *                   "totalStock": 100,
+ *                   "inStock": 100,
  *                   "costPriceCurrency": "USD",
  *                   "costPrice": 299.99,
  *                   "catalogId": "550e8400-e29b-41d4-a716-446655440000",
@@ -388,7 +388,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                   type: string
  *                 sku:
  *                   type: string
- *                 totalStock:
+ *                 inStock:
  *                   type: integer
  *                 costPriceCurrency:
  *                   type: string
@@ -458,7 +458,7 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *                 example: {
  *                   "name": "Power Drill X200",
  *                   "sku": "PDX200",
- *                   "totalStock": 100,
+ *                   "inStock": 100,
  *                   "costPriceCurrency": "USD",
  *                   "costPrice": 299.99,
  *                   "catalogId": "550e8400-e29b-41d4-a716-446655440000",
@@ -500,7 +500,7 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *                   type: string
  *                 sku:
  *                   type: string
- *                 totalStock:
+ *                 inStock:
  *                   type: integer
  *                 costPriceCurrency:
  *                   type: string

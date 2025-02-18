@@ -95,34 +95,33 @@ const Purchase = sequelize.define('Purchase', {
     ],
     hooks: {
         beforeValidate: (purchase) => {
-          // Calculate total amount before validation
           if (purchase.quantity && purchase.costPrice) {
             purchase.totalAmount = parseFloat((purchase.quantity * purchase.costPrice).toFixed(2));
           }
         },
         beforeCreate: async (purchase) => {
-          // Validate product exists
           const product = await Product.findByPk(purchase.productId);
           if (!product) throw new Error('Product not found');
         },
         afterCreate: async (purchase) => {
-          await updateProductStock(purchase, 'add');
+          if (purchase.status !== PURCHASE_STATUS.COMPLETED) return;
+          await updateProductStock(purchase, null, null, 'add');
         },
         afterUpdate: async (purchase) => {
-          if (purchase.changed('status')) {
+          if (purchase.changed('status') || purchase.changed('quantity')) {
             const previousStatus = purchase.previous('status');
-            if (previousStatus === PURCHASE_STATUS.COMPLETED && 
-                purchase.status !== PURCHASE_STATUS.COMPLETED) {
-              await updateProductStock(purchase, 'subtract');
-            } else if (purchase.status === PURCHASE_STATUS.COMPLETED && 
-                      previousStatus !== PURCHASE_STATUS.COMPLETED) {
-              await updateProductStock(purchase, 'add');
+            const previousQuantity = purchase.previous('quantity');
+
+            // Only update stock if there's an actual change that impacts inventory
+            if (purchase.status === PURCHASE_STATUS.COMPLETED || 
+                previousStatus === PURCHASE_STATUS.COMPLETED) {
+              await updateProductStock(purchase, previousQuantity, previousStatus, 'update');
             }
           }
         },
-        beforeDestroy: async (purchase) => {
+        afterDestroy: async (purchase) => {
           if (purchase.status === PURCHASE_STATUS.COMPLETED) {
-            await updateProductStock(purchase, 'subtract');
+            await updateProductStock(purchase, null, null, 'destroy');
           }
         }
     }
@@ -130,32 +129,58 @@ const Purchase = sequelize.define('Purchase', {
 // Example payload
 
 // Improved helper function with error handling
-const updateProductStock = async (purchase, action) => {
-    if (purchase.status !== PURCHASE_STATUS.COMPLETED) return;
+const updateProductStock = async (purchase, previousQuantity, previousStatus, action) => {
+  try {
+      const product = await Product.findByPk(purchase.productId);
+      if (!product) {
+          throw new Error('Product not found');
+      }
+      
+      let newStock =  Number(product.inStock); // Start with current stock
+      
+      if (action === 'update') {
+          // Case 1: From not-completed to completed (add new quantity)
+          if (purchase.status === PURCHASE_STATUS.COMPLETED && 
+              previousStatus !== PURCHASE_STATUS.COMPLETED) {
+              newStock +=  Number(purchase.quantity);
+          }
+          // Case 2: From completed to not-completed (remove quantity)
+          else if (previousStatus === PURCHASE_STATUS.COMPLETED && 
+                  purchase.status !== PURCHASE_STATUS.COMPLETED) {
+              newStock -= Number(previousQuantity);
+          }
+          // Case 3: Remained completed but quantity changed
+          else if (purchase.status === PURCHASE_STATUS.COMPLETED && 
+                  previousStatus === PURCHASE_STATUS.COMPLETED && 
+                  previousQuantity !== purchase.quantity) {
+              // Remove old quantity, add new quantity
+              newStock = newStock - +previousQuantity + +purchase.quantity;
+          }
+      }
+      else if (action === 'add') {
+          newStock += Number(purchase.quantity);
+      }
+      else if (action === 'destroy') {
+          newStock -= Number(purchase.quantity);
+      }
+      
+      console.log('New stock:', newStock); // For debugging
 
-    try {
-        const product = await Product.findByPk(purchase.productId);
-        if (!product) {
-            throw new Error('Product not found');
-        }
+      if (newStock < 0) {
+          throw new Error('Stock cannot be negative');
+      }
 
-        const change = action === 'add' ? purchase.quantity : -purchase.quantity;
-        const newStock = product.totalStock + change;
 
-        if (newStock < 0) {
-            throw new Error('Stock cannot be negative');
-        }
 
-        await product.update({ 
-            totalStock: newStock,
-            version: product.version + 1
-        });
-    } catch (error) {
-        console.error('Error updating product stock:', error);
-        throw error;
-    }
-};
-
+      await product.update({ 
+          inStock: newStock,
+          version: product.version + 1
+      });
+  } catch (error) {
+      console.error('Error updating product stock:', error);
+      throw error;
+  }
+}
 // Define associations
 Purchase.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(Purchase, { foreignKey: 'userId'});

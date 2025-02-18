@@ -93,7 +93,7 @@ const vendorSchema = Joi.object({
  *       404:
  *         description: Not Found
  */
-router.get('/', authorize('stock', 'view'), getAll);
+router.get('/', authorize('purchase', 'view'), getAll);
 
 /**
  * @openapi
@@ -123,7 +123,7 @@ router.get('/', authorize('stock', 'view'), getAll);
  *       404:
  *         description: Not Found
  */
-router.get('/dropdown', authorize('stock', 'view'), vendorDropdown);
+router.get('/dropdown', authorize('purchase', 'view'), vendorDropdown);
 
 /**
  * @openapi
@@ -191,7 +191,7 @@ router.get('/dropdown', authorize('stock', 'view'), vendorDropdown);
  *       404:
  *         description: Not Found
  */
-router.get('/:id', authorize('stock', 'view'), getOne);
+router.get('/:id', authorize('purchase', 'view'), getOne);
 
 /**
  * @openapi
@@ -283,7 +283,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *       404:
  *         description: Not Found
  */
-router.post('/', authorize('stock', 'manage'),  validateRequest(vendorSchema), create);
+router.post('/', authorize('purchase', 'manage'),  validateRequest(vendorSchema), create);
 
 /**
  * @openapi
@@ -382,7 +382,7 @@ router.post('/', authorize('stock', 'manage'),  validateRequest(vendorSchema), c
  *       404:
  *         description: Not Found
  */
-router.put('/:id', authorize("stock", "manage"),   validateRequest(vendorSchema), updateOne);
+router.put('/:id', authorize("purchase", "manage"),   validateRequest(vendorSchema), updateOne);
 
 /**
  * @openapi
@@ -406,6 +406,6 @@ router.put('/:id', authorize("stock", "manage"),   validateRequest(vendorSchema)
  *       404:
  *         description: Not Found
  */
-router.delete('/:id', authorize("stock", "delete"), deleteOne);
+router.delete('/:id', authorize("purchase", "delete"), deleteOne);
 
 module.exports = router;

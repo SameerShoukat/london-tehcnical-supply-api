@@ -7,7 +7,6 @@ const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
 const {generateRefreshToken, refreshAccessToken, revokeRefreshToken } = require("./refreshtoken")
 const {deleteToken} =  require("../middleware/auth")
-const { Op } = require('sequelize');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -130,7 +129,13 @@ const loginUser = async (req, res, next) => {
     const { email, password } = req.body;
 
     // Find user by email
-    const user = await User.findOne({ where: { email, status : true}});
+    const user = await User.findOne({ where: { email, status : true}, 
+      include:[{
+        model : Permission, 
+        as : 'permission', 
+        attributes : ['setting', 'stocks', 'purchase', 'orders', 'finance']
+      }]
+    });
     if(!user) throw boom.notFound('User not found');
     
     if (!bcrypt.compareSync(password, user.password)) throw boom.unauthorized(`Invalid password`);
@@ -144,6 +149,7 @@ const loginUser = async (req, res, next) => {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      permissions : user.permission,
       authToken : token,
       refreshToken
     }));
@@ -333,6 +339,17 @@ const deactivateUser = async (req, res, next) => {
 };
 
 
+const getMyPermission = async (req, res, next) => {
+  try {
+
+    const { permission } = req.user;
+
+    return res.status(200).json(message(true, 'User Permission retrieved successfully', permission));
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 
 module.exports = {
@@ -347,4 +364,5 @@ module.exports = {
   logout,
   activateUser,
   deactivateUser,
+  getMyPermission
 };

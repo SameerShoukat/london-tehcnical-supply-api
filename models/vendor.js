@@ -75,7 +75,6 @@ const Vendor = sequelize.define('Vendor', {
     ]
 });
 
-
 Vendor.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(Vendor, { foreignKey: 'userId' });
 
