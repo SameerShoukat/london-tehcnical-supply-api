@@ -73,7 +73,8 @@ const Category = sequelize.define('Category', {
 
 
 Category.belongsTo(Catalog, {foreignKey: 'catalogId', as: 'catalog'});
-Catalog.hasMany(Category, {foreignKey: 'catalogId'});
+Catalog.hasMany(Category, {foreignKey: 'catalogId', onDelete: 'CASCADE', onUpdate: 'CASCADE'});
+
 
 Category.belongsTo(User, { foreignKey: 'userId', as: 'user'});
 User.hasMany(Category, { foreignKey: 'userId' });

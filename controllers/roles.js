@@ -127,11 +127,25 @@ const getPermission = async (req, res, next) =>{
   res.status(200).json(message(true, 'Permissions retrieved successfully', allPermissions));
 }
 
+const getDropdown = async (req, res, next) => {
+  try {
+    const roles = await Role.findAll({
+      attributes: [['name', 'label'], ['id', 'value']],
+      order: [['name', 'ASC']]
+    });
+
+    return res.status(200).json(message(true, 'Dropdown data retrieved successfully', roles));
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
     create,
     getAll,
     updateOne,
     getOne,
     deleteOne,
-    getPermission
+    getPermission,
+    getDropdown
 };

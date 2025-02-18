@@ -2,8 +2,8 @@ const { createSlug } = require("../utils/hook");
 const _ = require("lodash");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
-const { string } = require('joi');
 const Catalog = require('../models/catalog');
+const User = require('../models/users');
 
 // Create a new catalog
 const create = async (req, res, next) => {
@@ -43,22 +43,22 @@ const create = async (req, res, next) => {
 // Get all catalog with optional filtering
 const getAll = async (req, res, next) => {
   try {
+    const { offset = 0, pageSize = 10 } = req.query;
 
-    const { pagination = 1, limit = 10 } = req.query;
-    const offset = (parseInt(pagination, 10) - 1) * parseInt(limit, 10);
-
-    // Get the total count of matching rows
+    // count
     const count = await Catalog.count();
 
     // Get the paginated rows
     const rows = await Catalog.findAll({
+      attributes: { exclude: ['password'] },
       order: [['createdAt', 'DESC']],
-      limit: parseInt(limit, 10),
+      limit: parseInt(pageSize, 10),
       offset,
     });
 
-
-      return res.status(200).json(message(true, 'Catalog retrieved successfully', rows, count));
+    
+    
+    return res.status(200).json(message(true, 'Catalog retrieved successfully', rows, count));
 
   } catch (error) {
     next(error);
@@ -70,7 +70,15 @@ const getAll = async (req, res, next) => {
 const getOne = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const catalog = await Catalog.findByPk(id);
+        const catalog = await Catalog.findByPk(id,{
+          include: [
+            {
+              model: User,
+              as : 'user',
+              attributes: ['id', 'firstName', 'lastName', 'email']
+            }
+          ]
+        });
         if (!catalog) throw boom.notFound('Catalog not found');
         return res.status(200).json(message(true, 'Catalog retrieved successfully', catalog));
     } catch (error) {
@@ -120,11 +128,23 @@ const deleteOne = async (req, res, next) => {
     }
 };
 
+const catalogDropdown = async (req, res, next) => {
+  try {
+    const catalogs = await Catalog.findAll({
+      attributes: [['name', 'label'], ['id', 'value']]
+    });
+    return res.status(200).json(message(true, 'Dropdown retrieved successfully', catalogs));
+  } catch (error) {
+    next(error);
+  }
+}
+
 
 module.exports = {
     create,
     getAll,
     updateOne,
     getOne,
-    deleteOne
+    deleteOne,
+    catalogDropdown
 };

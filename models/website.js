@@ -4,9 +4,9 @@ const User = require('./users');
 
 const Website = sequelize.define('Website', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     primaryKey: true,
-    autoIncrement: true,
+    defaultValue: DataTypes.UUIDV4,
     allowNull: false
   },
   name: {

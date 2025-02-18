@@ -1,3 +1,16 @@
+/**
+ * @fileoverview This module defines the routes for user-related operations in the application.
+ * It includes routes for user registration, login, profile retrieval and update, and user management.
+ * The routes are documented using OpenAPI specifications for API documentation.
+ * 
+ * @requires express
+ * @requires joi
+ * @requires ../controllers/users
+ * @requires ../middleware/auth
+ * @requires ../middleware/validation
+ * 
+ * @module routes/users
+ */
 const express = require('express');
 const Joi = require("joi");
 const router = express.Router();
@@ -8,21 +21,65 @@ const {
   updateUserProfile,
   getAll,
   getOne,
-  deleteOne
+  deleteOne,
+  validateAccessToken,
+  activateUser,
+  deactivateUser,
+  logout,
+  getMyPermission
 } = require('../controllers/users');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
+
+const permissionSchema = Joi.object({
+  accounts: Joi.array().items(
+    Joi.string().valid('view', 'manage', 'delete')
+  ).optional().messages({
+    'any.only': 'Invalid account permission'
+  }),
+  stocks: Joi.array().items(
+    Joi.string().valid('view', 'manage', 'delete')
+  ).optional().messages({
+    'any.only': 'Invalid stock permission'  
+  }),
+  orders: Joi.array().items(
+    Joi.string().valid('view', 'manage', 'delete')
+  ).optional().messages({
+    'any.only': 'Invalid order permission'  
+  }),
+  finance: Joi.array().items(
+    Joi.string().valid('view', 'manage', 'delete')
+  ).optional().messages({
+    'any.only': 'Invalid finance permission'  
+  })
+});
+
 
 const userSchema = Joi.object({
   email: Joi.string().email().required().messages({
     'string.email': 'Please provide a valid email address',
     'any.required': 'Email is required'
   }),
-  roleId : Joi.string().optional(),
   password: Joi.string().required().messages({
     'any.required': 'Password is required'
   })
 });
+
+const createSchema = Joi.object({
+  email: Joi.string().email().required().messages({
+    'string.email': 'Please provide a valid email address',
+    'any.required': 'Email is required'
+  }),
+  permissions : permissionSchema.required().messages({
+    'any.required': 'Permissions are required'
+  })
+});
+
+const refreshTokenSchema = Joi.object({
+  token: Joi.string().required().messages({
+    'any.required': 'Refresh token is required'
+  })
+})
 
 
 
@@ -47,9 +104,9 @@ const userSchema = Joi.object({
  *              email:
  *                type: string
  *                default: admin@londontechnicalsupply.com
- *              password:
- *                type: string
- *                default: adm%%4in
+ *              permissions:
+ *                type: object
+ *                default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
  *     responses:
  *       200:
  *         description: Success
@@ -64,8 +121,9 @@ const userSchema = Joi.object({
  *                    example : "gdgdgdgdcbcbcb"
  *                  email:
  *                    example: "sameershoukat000@gmail.com"
- *                  role:
- *                    example: "admin"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -73,7 +131,7 @@ const userSchema = Joi.object({
  *       404:
  *         description: not found
  */
-router.post('/register', validateRequest(userSchema), registerUser);
+router.post('/register', validateRequest(createSchema), registerUser);
 
 /**
  * @openapi
@@ -97,7 +155,7 @@ router.post('/register', validateRequest(userSchema), registerUser);
  *                default: admin@londontechnicalsupply.com
  *              password:
  *                type: string
- *                default: adm%%4in
+ *                default: 1234
  *     responses:
  *       200:
  *         description: Success
@@ -112,8 +170,9 @@ router.post('/register', validateRequest(userSchema), registerUser);
  *                    example : "gdgdgdgdcbcbcb"
  *                  email:
  *                    example: "sameershoukat000@gmail.com"
- *                  role:
- *                    example: "admin"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -144,14 +203,11 @@ router.post('/login', validateRequest(userSchema), loginUser);
  *                properties:
  *                  id:
  *                    example : "gdgdgdgdcbcbcb"
- *                  firstName:
- *                    example : "Harris"
- *                  lastName:
- *                    example : "Jordan"
  *                  email:
- *                    example: "harrisjordan@gmail.com"
- *                  role:
- *                    example: "admin"
+ *                    example: "sameershoukat000@gmail.com"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -160,6 +216,35 @@ router.post('/login', validateRequest(userSchema), loginUser);
  *         description: not found
  */
 router.get('/profile', authorize('', '', true), getUserProfile);
+
+/**
+ * @openapi
+ * /api/user/permission:
+ *   get:
+ *     tags:
+ *       - USER
+ *     summary: Get user permission
+ *     security:
+ *       - Bearer: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                       accounts: ["read", "manage"]
+ *                       stocks: ["read"]
+ *                       orders: ["manage", "delete"]
+ *                       finance: ["read"]
+ *       404:
+ *         description: Not found
+ */
+
+router.get('/permission', authorize('', '', true), getMyPermission);
 
 /**
  * @openapi
@@ -172,11 +257,17 @@ router.get('/profile', authorize('', '', true), getUserProfile);
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
  *       - in: query
- *         name: pagination
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: Number of items per page
+ *       - in: query
+ *         name: pageSize
  *         schema:
  *           type: string
  *         required: false
- *         description: Name of the page to filter accounts
+ *         description: Cursor for pageSize
  *     responses:
  *       200:
  *         description: Success
@@ -189,14 +280,11 @@ router.get('/profile', authorize('', '', true), getUserProfile);
  *                properties:
  *                  id:
  *                    example : "gdgdgdgdcbcbcb"
- *                  firstName:
- *                    example : "Harris"
- *                  lastName:
- *                    example : "Jordan"
  *                  email:
- *                    example: "harrisjordan@gmail.com"
- *                  role:
- *                    example: "admin"
+ *                    example: "sameershoukat000@gmail.com"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -204,7 +292,91 @@ router.get('/profile', authorize('', '', true), getUserProfile);
  *       404:
  *         description: not found
  */
-router.get('/all', authorize('accounts', 'view'), getAll);
+router.get('/all', authorize('setting', 'view'), getAll);
+
+/**
+ * @openapi
+ * '/api/user/activate/{id}':
+ *  get:
+ *     tags:
+ *     - USER
+ *     summary: Make use Active
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *     - name: id
+ *       in: path
+ *       required: true
+ *       description: ID of the account
+ *       schema:
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *          application/json:
+ *            schema:
+ *              type: array
+ *              items:
+ *                type: object
+ *                properties:
+ *                  id:
+ *                    example : "gdgdgdgdcbcbcb"
+ *                  email:
+ *                    example: "sameershoukat000@gmail.com"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                  jwtToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *                  refreshToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *       404:
+ *         description: not found
+ */
+router.get('/activate/:id', authorize('setting', 'view'), activateUser);
+
+/**
+ * @openapi
+ * '/api/user/deactivate/{id}':
+ *  get:
+ *     tags:
+ *     - USER
+ *     summary: Get all roles
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *     - name: id
+ *       in: path
+ *       required: true
+ *       description: ID of the account
+ *       schema:
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *          application/json:
+ *            schema:
+ *              type: array
+ *              items:
+ *                type: object
+ *                properties:
+ *                  id:
+ *                    example : "gdgdgdgdcbcbcb"
+ *                  email:
+ *                    example: "sameershoukat000@gmail.com"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                  jwtToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *                  refreshToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *       404:
+ *         description: not found
+ */
+router.get('/deactivate/:id', authorize('setting', 'view'), deactivateUser);
 
 /**
  * @openapi
@@ -234,14 +406,11 @@ router.get('/all', authorize('accounts', 'view'), getAll);
  *                properties:
  *                  id:
  *                    example : "gdgdgdgdcbcbcb"
- *                  firstName:
- *                    example : "Harris"
- *                  lastName:
- *                    example : "Jordan"
  *                  email:
- *                    example: "harrisjordan@gmail.com"
- *                  role:
- *                    example: "admin"
+ *                    example: "sameershoukat000@gmail.com"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -249,7 +418,7 @@ router.get('/all', authorize('accounts', 'view'), getAll);
  *       404:
  *         description: not found
  */
-router.get('/:id', authorize('accounts', 'view'), getOne);
+router.get('/:id', authorize('setting', 'view'), getOne);
 
 /**
  * @openapi
@@ -288,14 +457,11 @@ router.get('/:id', authorize('accounts', 'view'), getOne);
  *                properties:
  *                  id:
  *                    example : "gdgdgdgdcbcbcb"
- *                  firstName:
- *                    example : "Harris"
- *                  lastName:
- *                    example : "Jordan"
  *                  email:
- *                    example: "harrisjordan@gmail.com"
- *                  role:
- *                    example: "admin"
+ *                    example: "sameershoukat000@gmail.com"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -349,14 +515,11 @@ router.put('/profile', authorize('', '', true), updateUserProfile);
  *                properties:
  *                  id:
  *                    example : "gdgdgdgdcbcbcb"
- *                  firstName:
- *                    example : "Harris"
- *                  lastName:
- *                    example : "Jordan"
  *                  email:
- *                    example: "harrisjordan@gmail.com"
- *                  role:
- *                    example: "admin"
+ *                    example: "sameershoukat000@gmail.com"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -364,9 +527,7 @@ router.put('/profile', authorize('', '', true), updateUserProfile);
  *       404:
  *         description: not found
  */
-router.put('/:id', authorize('accounts', 'manage'), updateUserProfile);
-
-
+router.put('/:id', authorize('setting', 'manage'), updateUserProfile);
 
 /**
  * @openapi
@@ -388,43 +549,91 @@ router.put('/:id', authorize('accounts', 'manage'), updateUserProfile);
  *       200:
  *         description: Success
  *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                     example: "gdgdgdgdcbcbcb"
- *                   name:
- *                     type: string
- *                     example: "finance"
- *                   accounts:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   stocks:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   orders:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
- *                   finance:
- *                     type: array
- *                     items:
- *                       type: string
- *                     example: ['read', 'manage', 'delete']
+ *          application/json:
+ *            schema:
+ *              type: array
+ *              items:
+ *                type: object
+ *                properties:
+ *                  id:
+ *                    example : "gdgdgdgdcbcbcb"
+ *                  email:
+ *                    example: "sameershoukat000@gmail.com"
+ *                  permissions:
+ *                    type: object
+ *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                  jwtToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
+ *                  refreshToken:
+ *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *       404:
- *         description: Not Found
+ *         description: not found
  */
-router.delete('/:id', authorize('accounts', 'delete'), deleteOne);
+router.delete('/:id', authorize('setting', 'delete'), deleteOne);
 
+/**
+ * @openapi
+ * '/api/user/validate':
+ *  post:
+ *     tags:
+ *     - USER
+ *     summary: Validate refresh token
+ *     requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *           schema:
+ *            type: object
+ *            required:
+ *              - token
+ *            properties:
+ *              token:
+ *                type: string
+ *                default: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *          application/json:
+ *            schema:
+ *              type: object
+ *              properties:
+ *                auth:
+ *                  type: boolean
+ *                  example: true
+ *       400:
+ *         description: Invalid token
+ */
+router.post('/validate', validateRequest(refreshTokenSchema), validateAccessToken);
+
+/**
+ * @openapi
+ * '/api/user/logout':
+ *  post:
+ *     tags:
+ *     - USER
+ *     summary: Validate refresh token
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *           schema:
+ *            type: object
+ *            required:
+ *              - token
+ *            properties:
+ *              token:
+ *                type: string
+ *                default: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *     responses:
+ *       200:
+ *         description: Success
+ *       400:
+ *         description: Invalid token
+ */
+router.post('/logout', authorize('', '', true), validateRequest(refreshTokenSchema), logout);
 
 
 module.exports = router;

@@ -8,6 +8,7 @@ const validateEnv = require('./middleware/validateEnv');
 const { sequelize, models } = require('./models');
 const apiDocumentation =  require("./swagger")
 const {errorMiddleware} = require("./middleware/decorateError")
+const path = require("path")
 
 // Load environment variables
 dotenv.config();
@@ -16,7 +17,9 @@ validateEnv(); // Validate environment variables
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*' // Your React app's URL
+}));
 app.use(helmet());
 app.use(express.json());
 
@@ -29,9 +32,22 @@ app.use('/documentation', apiDocumentation);
 app.use('/api/user', require('./routes/users'));
 app.use('/api/role', require('./routes/roles'));
 app.use('/api/catalog', require('./routes/catalog'));
+app.use('/api/category', require('./routes/category'));
+app.use('/api/subCategory', require('./routes/subCategory'));
+app.use('/api/website', require('./routes/website'));
+app.use('/api/attribute', require('./routes/attributes'));
+app.use('/api/vendor', require('./routes/vendor'));
+app.use('/api/purchase', require('./routes/purchase'));
+app.use('/api/product', require('./routes/product'));
+app.use('/api/constant', require('./routes/constant'));
+
 
 // Error handling middleware
 app.use(errorMiddleware);
+
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
 
 
 // Database connection
@@ -39,6 +55,7 @@ app.use(errorMiddleware);
   try {
     await sequelize.authenticate();
     console.log('Database connected successfully');
+
 
     // Sync models
     

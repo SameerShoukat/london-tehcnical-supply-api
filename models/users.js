@@ -1,40 +1,48 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const Role = require('./roles');
+const Permission = require('./permission');
 
 const User = sequelize.define('User', {
   id: {
     type: DataTypes.UUID,
     primaryKey: true,
-    defaultValue: DataTypes.UUIDV4, // This is correct
-    allowNull: false
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
   },
   firstName: {
     type: DataTypes.STRING,
-    allowNull: true
+    allowNull: true,
   },
   lastName: {
     type: DataTypes.STRING,
-    allowNull: true
+    allowNull: true,
+  },
+  role: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    validate: {
+      isIn: [['user', 'admin']],
+    },
   },
   email: {
     type: DataTypes.STRING,
     allowNull: false,
     unique: {
       args: true,
-      msg: 'This email is already in use. Please choose a different one.'
+      msg: 'This email is already in use. Please choose a different one.',
     },
     validate: {
-      isEmail: true
-    }
+      isEmail: true,
+    },
   },
-  roleId: {  // This is your foreign key
+  permissionId: {
     type: DataTypes.UUID,
     allowNull: false,
     references: {
-      model: Role,
-      key: 'id'
-    }
+      model: Permission,
+      key: 'id',
+    },
+    onDelete: 'CASCADE',
   },
   phone: {
     type: DataTypes.STRING,
@@ -42,16 +50,26 @@ const User = sequelize.define('User', {
   },
   password: {
     type: DataTypes.STRING,
-    allowNull: false
-  }
-},
-{
-    tableName : 'users',
-    paranoid: true, // Enables soft deletes
-    timestamps: true, // Enables createdAt and updatedAt
+    allowNull: false,
+  },
+  status: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+}, {
+  tableName: 'users',
+  paranoid: true,
+  timestamps: true,
+  hooks: {
+    afterDestroy: async (user, options) => {
+      if (user.permissionId) {
+        await Permission.destroy({ where: { id: user.permissionId } });
+      }
+    },
+  },
 });
 
+User.belongsTo(Permission, { foreignKey: 'permissionId', as: 'permission' });
+Permission.hasOne(User, { foreignKey: 'permissionId', onDelete: 'CASCADE' });
 
-User.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
-Role.hasMany(User, { foreignKey: 'roleId' });  // `roleId` links Role to Users
 module.exports = User;

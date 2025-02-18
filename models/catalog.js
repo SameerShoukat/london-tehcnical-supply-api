@@ -64,7 +64,7 @@ const Catalog = sequelize.define('Catalog', {
 }
 );
 
-Catalog.belongsTo(User, { foreignKey: 'userId', as: 'users' });
+Catalog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(Catalog, { foreignKey: 'userId' });
 
 module.exports = Catalog;

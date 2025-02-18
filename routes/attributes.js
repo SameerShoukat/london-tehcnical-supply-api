@@ -7,25 +7,25 @@ const {
   updateOne,
   getOne,
   deleteOne,
-  catalogDropdown
-} = require('../controllers/catalog');
+  attributeDropdown
+} = require('../controllers/attribute');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 const Joi = require('joi');
 
 // Validation schemas
-const catalogSchema = Joi.object({
+const attributeSchema = Joi.object({
   name: Joi.string().required().min(3).max(100)
 });
 
 /**
  * @openapi
- * '/api/catalog':
+ * '/api/attribute':
  *  get:
  *     tags:
- *     - Catalog
- *     summary: Get all catalogs
+ *     - Attribute
+ *     summary: Get all attributes
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
@@ -34,7 +34,7 @@ const catalogSchema = Joi.object({
  *         schema:
  *           type: string
  *         required: false
- *         description: Name of the page to filter catalogs
+ *         description: Name of the page to filter attributes
  *     responses:
  *       200:
  *         description: Success
@@ -52,20 +52,18 @@ const catalogSchema = Joi.object({
  *                 slug:
  *                   type: string
  *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
  *       404:
  *         description: Not Found
  */
 router.get('/', authorize('stock', 'view'), getAll);
+
 /**
  * @openapi
- * '/api/catalog/dropdown':
+ * '/api/attribute/dropdown':
  *  get:
  *     tags:
- *     - Catalog
- *     summary: Get catalog dropdown
+ *     - Attribute
+ *     summary: Get attribute dropdown
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     responses:
@@ -87,22 +85,22 @@ router.get('/', authorize('stock', 'view'), getAll);
  *       404:
  *         description: Not Found
  */
-router.get('/dropdown', authorize('stock', 'view'), catalogDropdown);
+router.get('/dropdown', authorize('stock', 'view'), attributeDropdown);
 
 /**
  * @openapi
- * '/api/catalog/{id}':
+ * '/api/attribute/{id}':
  *  get:
  *     tags:
- *     - Catalog
- *     summary: Get catalog
+ *     - Attribute
+ *     summary: Get attribute
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the catalog
+ *       description: ID of the attribute
  *     responses:
  *       200:
  *         description: Success
@@ -120,9 +118,6 @@ router.get('/dropdown', authorize('stock', 'view'), catalogDropdown);
  *                 slug:
  *                   type: string
  *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
  *       404:
  *         description: Not Found
  */
@@ -130,30 +125,23 @@ router.get('/:id', authorize('stock', 'view'), getOne);
 
 /**
  * @openapi
- * '/api/catalog':
+ * '/api/attribute':
  *   post:
  *     tags:
- *       - Catalog
- *     summary: Create catalog
+ *       - Attribute
+ *     summary: Create attribute
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               data:
+ *               name:
  *                 type: string
- *                 example : {name: "ABCD"}
- *               files:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *             minItems: 1  # Specify the minimum number of items (files) required
- *             maxItems: 5  # Specify the maximum number of items (files) allowed
+ *                 example: "ABCD"
  *     responses:
  *       200:
  *         description: Success
@@ -167,50 +155,40 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                   example: "gdgdgdgdcbcbcb"
  *                 name:
  *                   type: string
- *                   example: ABCD
+ *                   example: "ABCD"
  *                 slug:
  *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: string
- *                   example: ABCD
+ *                   example: "abcd"
  *       404:
  *         description: Not Found
  */
-router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validateRequest(catalogSchema, true), create);
+router.post('/', authorize('stock', 'manage'), validateRequest(attributeSchema), create);
 /**
  * @openapi
- * '/api/catalog/{id}':
+ * '/api/attribute/{id}':
  *   put:
  *     tags:
- *       - Catalog
- *     summary: update catalog
+ *       - Attribute
+ *     summary: update attribute
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the catalog
+ *       description: ID of the attribute
  *       schema:
  *         type: string
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               data:
- *                 type: JSON
- *                 example : {name : ABCD}
- *               files:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *             minItems: 1  # Specify the minimum number of items (files) required
- *             maxItems: 5  # Specify the maximum number of items (files) allowed
+ *               name:
+ *                 type: string
+ *                 example: "ABCD"
  *     responses:
  *       200:
  *         description: Success
@@ -224,36 +202,47 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *                   example: "gdgdgdgdcbcbcb"
  *                 name:
  *                   type: string
- *                   example: ABCD
+ *                   example: "ABCD"
  *                 slug:
  *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: string
- *                   example: ABCD
+ *                   example: "abcd"
  *       404:
  *         description: Not Found
  */
-router.put('/:id', authorize("stock", "manage"), upload.array('files', 5),  validateRequest(catalogSchema, true), updateOne);
+router.put('/:id', authorize("stock", "manage"), validateRequest(attributeSchema), updateOne);
 /**
  * @openapi
- * '/api/catalog/{id}':
+ * '/api/attribute/{id}':
  *   delete:
  *     tags:
- *       - Catalog
- *     summary: Delete catalog
+ *       - Attribute
+ *     summary: Delete attribute
  *     security:
  *       - Bearer: []  # Reference to the security scheme
  *     parameters:
  *     - name: id
  *       in: path
  *       required: true
- *       description: ID of the catalog
+ *       description: ID of the attribute
  *       schema:
  *         type: string
  *     responses:
  *       200:
  *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
+ *                 name:
+ *                   type: string
+ *                   example: "ABCD"
+ *                 slug:
+ *                   type: string
+ *                   example: "abcd"
  *       404:
  *         description: Not Found
  */
