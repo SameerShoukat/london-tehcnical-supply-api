@@ -19,34 +19,6 @@ const Account = sequelize.define('Account', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    fullName: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    phone: {
-        type: DataTypes.STRING,
-        allowNull: true
-    },
-    address: {
-        type: DataTypes.TEXT,
-        allowNull: true
-    },
-    city: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    state: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    zipCode: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    country: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
     isActive: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
@@ -56,6 +28,8 @@ const Account = sequelize.define('Account', {
         allowNull: true
     }
 }, {
+    tableName : 'accounts',
+    paranoid: true, 
     timestamps: true 
 });
 

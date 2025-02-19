@@ -40,6 +40,7 @@ app.use('/api/vendor', require('./routes/vendor'));
 app.use('/api/purchase', require('./routes/purchase'));
 app.use('/api/product', require('./routes/product'));
 app.use('/api/constant', require('./routes/constant'));
+app.use('/api/order', require('./routes/order'));
 
 
 // Error handling middleware

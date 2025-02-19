@@ -1,102 +1,103 @@
-// const { DataTypes } = require('sequelize');
-// const sequelize = require('../../config/database');
-// const { createSlug } = require("../../utils/hook");
-// const Account = require("../models/account")
+// models/Order.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../../config/database');
+const {ORDER_PAYMENT_STATUS, ORDER_STATUS, CURRENCY, PAYMENT_STATUS} = require("../../constant/types")
+const Account = require("./account")
 
+const Order = sequelize.define('Order', {
+  id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+  },
+  orderNumber: {
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: false
+  },
+  accountId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+          model: Account,
+          key: 'id',
+        },
+  },
+  website : {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  shippingAddressSnapshot: {
+      type: DataTypes.JSONB,
+      allowNull: false
+  },
+  billingAddressSnapshot: {
+      type: DataTypes.JSONB,
+      allowNull: false
+  },
+  currency: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+        isIn: [Object.values(CURRENCY)]
+    },
+  },
+  subtotal: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false
+  },
+  shippingCost: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0
+  },
+  tax: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0
+  },
+  discount: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0
+  },
+  total: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false
+  },
+  status: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+        isIn: [Object.values(ORDER_STATUS)]
+    },
+    defaultValue: ORDER_STATUS.PENDING
+  },
+  paymentStatus: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+        isIn: [Object.values(ORDER_PAYMENT_STATUS)]
+    },
+    defaultValue: ORDER_PAYMENT_STATUS.UNPAID
+  },
+  metadata: {
+      type: DataTypes.JSONB,
+      defaultValue: {}
+  },
+  notes: {
+      type: DataTypes.TEXT,
+      allowNull: true
+  },
 
-// const ORDER_STATUS = {
-//     DELIVERED: 'delivered',
-//     CANCELLED: 'cancelled',
-//     WAITING_FOR_DISPATCH: 'waiting_for_dispatch',
-//     DISPATCHED: 'dispatch',
-//     PAYMENT_PENDING: 'payment_pending',
-//     PAID: 'paid',
-//     RETURN: 'return'
-// };
+}, {
+  tableName: 'orders',
+  paranoid: true,
+  indexes: [
+      { fields: ['accountId'] },
+      { fields: ['createdAt'] },
+      { fields: ['status', 'createdAt'] },
+      { fields: ['paymentStatus', 'createdAt'] },
+    ]
+});
 
-// const currency = ['USD', 'AED', 'GBP'];
-
-// const Order = sequelize.define('Product', {
-//     id: {
-//       type: DataTypes.UUID,
-//       primaryKey: true,
-//       defaultValue: DataTypes.UUIDV4,
-//       allowNull: false
-//     },
-//     orderId: {
-//       type: DataTypes.STRING,
-//       unique: true
-//     },
-//     totalAmount: {
-//         type: DataTypes.DECIMAL(10, 2),
-//         allowNull: false,
-//         validate: {
-//           min: 0
-//         }
-//       },
-//     shippingAddress: {
-//         type: DataTypes.JSONB,
-//         allowNull: false
-//     },
-//     billingAddress: DataTypes.JSONB,
-//     userId: {
-//       type: DataTypes.UUID,
-//       allowNull: false,
-//       references: {
-//         model: Account,
-//         key: 'id'
-//       }
-//     }
-//   }, {
-//     tableName: 'products',
-//     paranoid: true,
-//     timestamps: true,
-//     indexes: [
-//       { unique: true, fields: ['slug'] },
-//       { unique: true, fields: ['sku'] },
-//       { fields: ['itemId'] },
-//       { fields: ['status'] },
-//       { fields: ['catalogId'] },
-//       { fields: ['catId'] },
-//       { fields: ['subCategoryId'] },
-//       { fields: ['websiteId'] }
-//     ],
-//     hooks: {
-//       beforeCreate: (product) => {
-//         if (product.name) {
-//           product.slug = createSlug(product.name);
-//         }
-//         if (!product.inStock) {
-//           product.inStock = product.inStock;
-//         }
-//       },
-//       beforeUpdate: (product) => {
-//         if (product.changed('name')) {
-//           product.slug = createSlug(product.name);
-//         }
-//         if (product.changed()) {
-//           product.version += 1;
-//         }
-//       }
-//     }
-// });
-
-// // Define associations
-// Product.belongsTo(Catalog, {foreignKey: 'catalogId', as: 'catalog'});
-// Catalog.hasMany(Product, {foreignKey: 'catalogId'});
-
-// Product.belongsTo(Category, {foreignKey: 'catId', as: 'category'});
-// Category.hasMany(Product, {foreignKey: 'catId'});
-
-// Product.belongsTo(SubCategory, {foreignKey: 'subCatId', as: 'subCategory'});
-// SubCategory.hasMany(Product, {foreignKey: 'subCatId'});
-
-// Product.belongsTo(Website, {foreignKey: 'websiteId', as: 'website'});
-// Website.hasMany(Product, {foreignKey: 'websiteId'});
-
-// Product.belongsTo(User, {foreignKey: 'userId', as: 'user'});
-// User.hasMany(Product, {foreignKey: 'userId'});
-
-// module.exports = {Order, ORDER_STATUS}
-
-  
+Order.belongsTo(Account, {foreignKey : 'accountId', as : 'accountDetails'})
+Account.hasMany(Order, {foreignKey : 'accountId'})
+module.exports = Order

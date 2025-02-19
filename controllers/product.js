@@ -176,7 +176,7 @@ const getAll = async (req, res, next) => {
 
     return res.status(200).json(message(true, 'Products retrieved successfully', rows, count));
   } catch (error) {
-    handleError(error, next);
+    next(error);
   }
 };
 
@@ -316,7 +316,7 @@ const deleteOne = async (req, res, next) => {
     await product.destroy();
     return res.status(200).json(message(true, 'Product deleted successfully'));
   } catch (error) {
-    handleError(error, next);
+    next(error);
   }
 };
 
@@ -349,7 +349,7 @@ const updateStatus = async (req, res, next) => {
     return res.status(200).json(message(true, `Product status updated to ${status} successfully`, updatedProduct));
   } catch (error) {
     // Pass error to error handler middleware
-    handleError(error, next);
+    next(error);
   }
 };
 
