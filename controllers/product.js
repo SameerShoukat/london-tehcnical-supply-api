@@ -1,4 +1,5 @@
 const { createSlug } = require("../utils/hook");
+const { Op } = require('sequelize');
 const _ = require("lodash");
 const sequelize = require('../config/database');
 const boom = require("@hapi/boom");
@@ -11,6 +12,7 @@ const SubCategory = require('../models/subCategory');
 const User = require('../models/users');
 const ProductAttribute = require("../models/products/product_attribute")
 const ProductPricing = require("../models/products/pricing")
+const Attribute = require("../models/products/attributes")
 
 
 // Common error handler
@@ -132,12 +134,10 @@ const create = async (req, res, next) => {
 const getAll = async (req, res, next) => {
   try {
     const {
-      brand,
       catalogId,
       categoryId,
       subCategoryId,
       websiteId,
-      page = 1,
       offset = 0, 
       pageSize = 10,
       sortBy = 'createdAt',
@@ -146,7 +146,6 @@ const getAll = async (req, res, next) => {
 
     // Build where clause dynamically
     const where = _.pickBy({
-      brand,
       catalogId,
       categoryId,
       subCategoryId,
@@ -154,9 +153,8 @@ const getAll = async (req, res, next) => {
     }, _.identity);
 
     // Validate sort parameters
-    const validSortColumns = ['createdAt', 'name', 'price', 'brand'];
+    const validSortColumns = ['createdAt', 'name'];
     const validSortOrders = ['ASC', 'DESC'];
-    
     const order = [
       [
         validSortColumns.includes(sortBy) ? sortBy : 'createdAt',
@@ -179,6 +177,7 @@ const getAll = async (req, res, next) => {
     next(error);
   }
 };
+
 
 const getOne = async (req, res, next) => {
   try {
@@ -377,6 +376,155 @@ const productDropdown = async (req, res, next) => {
 };
 
 
+// website route
+
+const getProductForWebsite = async (req, res, next) => {
+  try {
+    const {
+      catalogId,
+      categoryId,
+      subCategoryId,
+      websiteId,
+      attributes, // Can be a JSON string or an object, e.g., { brand: 'Mercedes' }
+      page = 1,
+      offset = 0,
+      pageSize = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+    } = req.query;
+
+    // Build base where clause for the Product model
+    const where = _.pickBy({ catalogId, categoryId, subCategoryId, websiteId }, _.identity);
+
+    // Validate and normalize sort parameters
+    const validSortColumns = ['createdAt', 'name'];
+    const validSortOrders = ['ASC', 'DESC'];
+    const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'createdAt';
+    const sortDir = validSortOrders.includes(sortOrder.toUpperCase())
+      ? sortOrder.toUpperCase()
+      : 'DESC';
+    const order = [[sortColumn, sortDir]];
+
+    // Process attribute filtering:
+    // If 'attributes' is already an object, use it directly.
+    let attributeFilter = {};
+    if (attributes) {
+      if (typeof attributes === 'object') {
+        attributeFilter = attributes;
+      } else {
+        try {
+          attributeFilter = JSON.parse(attributes);
+        } catch (error) {
+          return res.status(400).json({ message: 'Invalid attributes format' });
+        }
+      }
+    }
+
+    let productIds = [];
+    if (Object.keys(attributeFilter).length > 0) {
+      // attributeFilter is in the form { brand: 'Mercedes', ... }
+      const attributeNames = Object.keys(attributeFilter);
+
+      // Retrieve the corresponding Attribute records (assuming Attribute model stores the attribute names)
+      const attributeRecords = await Attribute.findAll({
+        where: { name: attributeNames },
+      });
+
+      // If some attribute names are not found, then no product can match the filter.
+      if (attributeRecords.length !== attributeNames.length) {
+        return res.status(200).json(message(true, 'Products retrieved successfully', [], 0));
+      }
+
+      // Build conditions for filtering in ProductAttribute.
+      // For each attribute record, filter on its ID and the expected value.
+      const conditions = attributeRecords.map(attr => ({
+        attributeId: attr.id,
+        value: attributeFilter[attr.name],
+      }));
+
+      // Query ProductAttribute to find products matching any of the conditions,
+      // and then group by productId and use HAVING to ensure all conditions are met.
+      const productAttributes = await ProductAttribute.findAll({
+        attributes: ['productId'],
+        where: {
+          [Op.or]: conditions,
+        },
+        group: ['productId'],
+        having: sequelize.literal(`COUNT(DISTINCT "attributeId") = ${conditions.length}`),
+      });
+      
+      console.log(productAttributes)
+      console.log(conditions)
+
+      productIds = productAttributes.map(pa => pa.productId);
+
+      // If no matching products, return an empty result early.
+      if (productIds.length === 0) {
+        return res.status(200).json(message(true, 'Products retrieved successfully', [], 0));
+      }
+
+      // Add the found product IDs to the main query.
+      where.id = { [Op.in]: productIds };
+    }
+    console.log(where)
+
+    // Retrieve products with pagination and sorting.
+    const { count, rows } = await Product.findAndCountAll({
+      where,
+      limit: pageSize,
+      offset: (page - 1) * pageSize + parseInt(offset, 10),
+      order,
+    });
+
+    return res.status(200).json(message(true, 'Products retrieved successfully', rows, count));
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+const getProductsByAttribute = async (req, res, next) =>{
+  try{
+    const {attributeName} =  req.query
+    if(!attributeName) throw boom.badRequest("Attribute is require to access this endpoint")
+
+    // Find the attribute (case-insensitive)
+    const attribute = await Attribute.findOne({
+      where: {
+        name: {
+          [Op.iLike]: attributeName,
+        },
+      },
+    });
+
+    if (!attribute) {
+      return res.status(404).json({ message: 'Attribute not found' });
+    }
+
+
+    const results = await ProductAttribute.findAll({
+      attributes: [
+        'value',
+        [sequelize.fn('COUNT', sequelize.col('productId')), 'productCount'],
+        'attributeId' // Include attributeId
+      ],
+      where: {
+        attributeId: attribute.id, // Filter by the attribute ID
+      },
+      group: ['value', 'attributeId'], // Group by both value and attributeId
+      order: [['value', 'ASC']],
+    });
+
+
+
+    res.status(200).json(message(true, 'Attribute retrieved successfully', results))
+  }
+  catch(error){
+    next(error)
+  }
+}
+
+
 module.exports = {
   create,
   getAll,
@@ -384,5 +532,7 @@ module.exports = {
   getOne,
   deleteOne,
   updateStatus,
-  productDropdown
+  productDropdown,
+  getProductsByAttribute,
+  getProductForWebsite
 };

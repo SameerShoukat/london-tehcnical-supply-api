@@ -4,7 +4,7 @@ const sequelize = require('../../config/database');
 const User = require('../users');
 const { createSlug } = require("../../utils/hook");
 
-const Attribute = sequelize.define('Attribute', {
+const ProductCodes = sequelize.define('ProductCodes', {
   id: {
     type: DataTypes.UUID,
     primaryKey: true,
@@ -15,15 +15,7 @@ const Attribute = sequelize.define('Attribute', {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {
-      notEmpty: true,
-      isValidName(value) {
-        if (!/^[a-zA-Z0-9\s]+$/.test(value)) {
-          throw new Error('Name can only contain letters, numbers, and spaces');
-        }
-        if (value.trim().length === 0) {
-          throw new Error('Name cannot be just spaces');
-        }
-      }
+      notEmpty: true
     }
   },
   slug: {
@@ -44,7 +36,7 @@ const Attribute = sequelize.define('Attribute', {
 }, {
   paranoid: true,
   timestamps: true,
-  tableName: 'attributes',
+  tableName: 'product_codes',
   indexes: [
     { fields: ['name'] }
   ],
@@ -61,9 +53,8 @@ const Attribute = sequelize.define('Attribute', {
 });
 
 
+ProductCodes.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(ProductCodes, { foreignKey: 'userId'});
 
-Attribute.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(Attribute, { foreignKey: 'userId'});
-
-module.exports = Attribute;
+module.exports = ProductCodes;
 

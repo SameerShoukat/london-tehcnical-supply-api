@@ -30,6 +30,7 @@ const ProductAttribute = sequelize.define('ProductAttribute', {
       allowNull: false
     }
   }, {
+
     timestamps: true,
     tableName: 'product_attributes',
     indexes: [

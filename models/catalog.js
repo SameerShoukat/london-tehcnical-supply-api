@@ -22,6 +22,17 @@ const Catalog = sequelize.define('Catalog', {
       msg: 'This name is already in use. Please choose a different one.'
     },
   },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    validate: {
+      len: [0, 10000]
+    }
+  },
+  productCount: {
+    type: DataTypes.INTEGER,
+    defaultValue : 0,
+  },
   images: {
     type: DataTypes.ARRAY(DataTypes.STRING),
     allowNull: true,

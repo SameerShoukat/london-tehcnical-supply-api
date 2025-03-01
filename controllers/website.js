@@ -1,5 +1,6 @@
 const { createSlug } = require("../utils/hook");
 const _ = require("lodash");
+const { DataTypes, Op } = require('sequelize'); // Add Op for array operations
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
 const Website = require('../models/website');
@@ -150,6 +151,14 @@ const websiteDropdown = async (req, res, next) => {
     next(error);
   }
 }
+
+// async function checker() {
+//   await Website.increment('productCount', { 
+//     by: 1, 
+//     where: { id: { [Op.in]: ["8e4c7d45-a9ba-4ada-a88d-ae73424e11f1"] } }
+//   });
+// }
+
 
 
 module.exports = {

@@ -23,6 +23,17 @@ const SubCategory = sequelize.define('SubCategory', {
   name: {
     type: DataTypes.STRING,
   },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    validate: {
+      len: [0, 10000]
+    }
+  },
+  productCount: {
+    type: DataTypes.INTEGER,
+    defaultValue : 0
+  },
   slug: {
     type: DataTypes.STRING,
     unique: {
