@@ -453,8 +453,7 @@ const getProductForWebsite = async (req, res, next) => {
         having: sequelize.literal(`COUNT(DISTINCT "attributeId") = ${conditions.length}`),
       });
       
-      console.log(productAttributes)
-      console.log(conditions)
+   
 
       productIds = productAttributes.map(pa => pa.productId);
 
@@ -466,7 +465,6 @@ const getProductForWebsite = async (req, res, next) => {
       // Add the found product IDs to the main query.
       where.id = { [Op.in]: productIds };
     }
-    console.log(where)
 
     // Retrieve products with pagination and sorting.
     const { count, rows } = await Product.findAndCountAll({
@@ -525,6 +523,163 @@ const getProductsByAttribute = async (req, res, next) =>{
 }
 
 
+const productList = async (req, res, next) => {
+  try {
+    const {
+      catalogId,
+      categoryId,
+      subCategoryId,
+      websiteId,
+      attributes, // Can be a JSON string or an object, e.g., { brand: 'Mercedes' }
+      page = 1,
+      offset = 0,
+      pageSize = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+    } = req.query;
+
+    // Get user IP and determine country
+    const userIP = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const country = 'UK'; // Implement this function
+    
+    // Define price currency mapping based on country
+    const currencyMap = {
+      UK: 'GBP',
+      US: 'USD',
+      UAE: 'AED'
+    };
+    const currency = currencyMap[country] || 'USD'; // Default to USD
+
+    // Build base where clause for the Product model
+    const baseWhere = _.pickBy({ catalogId, categoryId, subCategoryId }, _.identity);
+    
+    // Handle websiteId as an array
+    const where = { ...baseWhere };
+    if (websiteId) {
+      let websiteIds = [];
+      if (typeof websiteId === 'string' && websiteId.includes(',')) {
+        websiteIds = websiteId.split(',').map(id => id.trim());
+      } else if (Array.isArray(websiteId)) {
+        websiteIds = websiteId;
+      } else {
+        websiteIds = [websiteId];
+      }
+      // Use the overlap operator to match any websiteId in the array
+      where.websiteId = { [Op.overlap]: websiteIds };
+    }
+
+    // Validate and normalize sort parameters
+    const validSortColumns = ['createdAt', 'name'];
+    const validSortOrders = ['ASC', 'DESC'];
+    const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'createdAt';
+    const sortDir = validSortOrders.includes(sortOrder.toUpperCase())
+      ? sortOrder.toUpperCase()
+      : 'DESC';
+    const order = [[sortColumn, sortDir]];
+
+    // Process attribute filtering:
+    // If 'attributes' is already an object, use it directly.
+    let attributeFilter = {};
+    if (attributes) {
+      if (typeof attributes === 'object') {
+        attributeFilter = attributes;
+      } else {
+        try {
+          attributeFilter = JSON.parse(attributes);
+        } catch (error) {
+          return res.status(400).json({ message: 'Invalid attributes format' });
+        }
+      }
+    }
+
+    let productIds = [];
+    if (Object.keys(attributeFilter).length > 0) {
+      // attributeFilter is in the form { brand: 'Mercedes', ... }
+      const attributeNames = Object.keys(attributeFilter);
+
+      // Retrieve the corresponding Attribute records (assuming Attribute model stores the attribute names)
+      const attributeRecords = await Attribute.findAll({
+        where: { name: attributeNames },
+      });
+
+      // If some attribute names are not found, then no product can match the filter.
+      if (attributeRecords.length !== attributeNames.length) {
+        return res.status(200).json(message(true, 'Products retrieved successfully', [], 0));
+      }
+
+      // Build conditions for filtering in ProductAttribute.
+      // For each attribute record, filter on its ID and the expected value.
+      const conditions = attributeRecords.map(attr => ({
+        attributeId: attr.id,
+        value: attributeFilter[attr.name],
+      }));
+
+      // Query ProductAttribute to find products matching any of the conditions,
+      // and then group by productId and use HAVING to ensure all conditions are met.
+      const productAttributes = await ProductAttribute.findAll({
+        attributes: ['productId'],
+        where: {
+          [Op.or]: conditions,
+        },
+        group: ['productId'],
+        having: sequelize.literal(`COUNT(DISTINCT "attributeId") = ${conditions.length}`),
+      });
+      
+      productIds = productAttributes.map(pa => pa.productId);
+
+      // If no matching products, return an empty result early.
+      if (productIds.length === 0) {
+        return res.status(200).json(message(true, 'Products retrieved successfully', [], 0));
+      }
+
+      // Add the found product IDs to the main query.
+      where.id = { [Op.in]: productIds };
+    }
+
+    // Retrieve products with pagination, sorting, and include pricing for the user's currency
+    const { count, rows } = await Product.findAndCountAll({
+      where,
+      limit: parseInt(pageSize, 10),
+      offset: (parseInt(page, 10) - 1) * parseInt(pageSize, 10) + parseInt(offset, 10),
+      order,
+      include: [
+        {
+          model: ProductPricing,
+          as: 'productPricing',
+          attributes: ['currency', 'discountType', 'discountValue', 'basePrice'],
+          where: { currency },
+          required: false // Allow products without pricing in the user's currency
+        }
+      ]
+    });
+
+    // Format products with the correct price for the user's country
+    const formattedProducts = rows.map(product => {
+      // Convert to plain object
+      const plainProduct = product.toJSON();
+      
+      // Extract the first (and only) pricing if it exists
+      const pricing = plainProduct.productPricing && plainProduct.productPricing.length > 0 
+        ? plainProduct.productPricing[0] 
+        : null;
+      
+      // Return formatted product with pricing as an object, not an array
+      return {
+        ...plainProduct,
+        productPricing: pricing || null
+      };
+    });
+
+    return res.status(200).json(message(true, 'Products retrieved successfully', formattedProducts, count));
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+
+
 module.exports = {
   create,
   getAll,
@@ -534,5 +689,5 @@ module.exports = {
   updateStatus,
   productDropdown,
   getProductsByAttribute,
-  getProductForWebsite
+  productList
 };

@@ -9,7 +9,7 @@ const {
   updateStatus,
   productDropdown,
   getProductsByAttribute,
-  getProductForWebsite
+  productList
 } = require('../controllers/product');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
@@ -224,7 +224,7 @@ router.get('/', authorize('stock', 'view'), getAll);
 
 /**
  * @openapi
- * '/api/product/websites':
+ * '/api/product/list':
  *  get:
  *     tags:
  *     - Product
@@ -358,7 +358,7 @@ router.get('/', authorize('stock', 'view'), getAll);
  *       404:
  *         description: Not Found
  */
-router.get('/websites', getProductForWebsite);
+router.get('/list', productList);
 
 /**
  * @openapi

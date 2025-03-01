@@ -5,6 +5,7 @@ const { message } = require("../utils/hook");
 const Category = require('../models/category');
 const User = require('../models/users');
 const Catalog = require('../models/catalog');
+const Subcategory = require("../models/subCategory");
 
 // Create a new category
 const create = async (req, res, next) => {
@@ -160,6 +161,29 @@ const categoryDropdown = async (req, res, next) => {
   }
 }
 
+const categoryList = async (req, res, next) => {
+  try {
+
+    const { offset = 0, pageSize = 10 } = req.query;
+
+    // Get the paginated rows
+    const rows = await Category.findAll({
+      attributes: [['name', 'label'], ['id', 'value']],
+      order: [['name', 'DESC']],
+      include:[{model : Subcategory, attributes: [['name', 'label'], ['id', 'value']], as : 'sub_categories'}],
+      limit: parseInt(pageSize, 10),
+      offset,
+    });
+
+
+    return res.status(200).json(message(true, 'Category retrieved successfully', rows));
+  } catch (error) {
+    next(error);
+  }
+}
+
+
+
 
 
 module.exports = {
@@ -168,5 +192,6 @@ module.exports = {
     updateOne,
     getOne,
     deleteOne,
-    categoryDropdown
+    categoryDropdown,
+    categoryList
 };

@@ -7,7 +7,8 @@ const {
   updateOne,
   getOne,
   deleteOne,
-  categoryDropdown
+  categoryDropdown,
+  categoryList
 } = require('../controllers/category');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
@@ -100,6 +101,43 @@ router.get('/', authorize('stock', 'view'), getAll);
  *         description: Not Found
  */
 router.get('/dropdown', authorize('stock', 'view'), categoryDropdown);
+
+/**
+ * @openapi
+ * '/api/category/list':
+ *  get:
+ *     tags:
+ *     - Category
+ *     summary: Get category list for the website
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     parameters:
+ *       - in: query
+ *         name: catalogId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter categories by category
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   label:
+ *                     type: string
+ *                     example: ABCD
+ *                   value:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *       404:
+ *         description: Not Found
+ */
+router.get('/list', authorize('stock', 'view'), categoryList);
 
 /**
  * @openapi
