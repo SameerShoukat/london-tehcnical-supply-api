@@ -2,7 +2,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/database');
 const User = require('../users');
-const { createSlug } = require("../../utils/hook");
 
 const ProductCodes = sequelize.define('ProductCodes', {
   id: {
@@ -11,18 +10,11 @@ const ProductCodes = sequelize.define('ProductCodes', {
     defaultValue: DataTypes.UUIDV4,
     allowNull: false
   },
-  name: {
+  code: {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {
       notEmpty: true
-    }
-  },
-  slug: {
-    type: DataTypes.STRING,
-    unique: {
-      args: true,
-      msg: 'This name is already in use. Please choose a different one'
     }
   },
   userId: {
@@ -38,18 +30,8 @@ const ProductCodes = sequelize.define('ProductCodes', {
   timestamps: true,
   tableName: 'product_codes',
   indexes: [
-    { fields: ['name'] }
-  ],
-  hooks: {
-    beforeCreate(instance) {
-      instance.slug = createSlug(instance.name);
-    },
-    beforeUpdate(instance) {
-      if (instance.name) {
-        instance.slug = createSlug(instance.name);
-      }
-    },
-  },
+    { fields: ['code'] }
+  ]
 });
 
 

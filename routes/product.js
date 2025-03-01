@@ -82,7 +82,7 @@ const {
 
 // Validation schemas
 const productCodeValidationSchema = Joi.object({
-  name: Joi.string().required().min(3).max(100)
+  code: Joi.string().required().min(3).max(100)
 });
 
 /**
@@ -464,10 +464,7 @@ router.get('/dropdown', authorize('stock', 'view'), productDropdown);
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 name:
- *                   type: string
- *                   example: ABCD
- *                 slug:
+ *                 code:
  *                   type: string
  *                   example: ABCD
  *       404:
@@ -590,7 +587,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                 example: {
  *                   "name": "Power Drill X200",
  *                   "sku": "PDX200",
- *                   "itemId": "ATS8200",
+ *                   "productCode": "ATS8200",
  *                   "inStock": 100,
  *                   "costPriceCurrency": "USD",
  *                   "costPrice": 299.99,
@@ -703,7 +700,7 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *                 example: {
  *                   "name": "Power Drill X200",
  *                   "sku": "PDX200",
- *                   "itemId": "ATS8200",
+ *                   "productCode": "ATS8200",
  *                   "inStock": 100,
  *                   "costPriceCurrency": "USD",
  *                   "costPrice": 299.99,
@@ -908,10 +905,7 @@ router.get('/codes/dropdown', authorize('stock', 'view'), codesDropdown);
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 name:
- *                   type: string
- *                   example: ABCD
- *                 slug:
+ *                 code:
  *                   type: string
  *                   example: ABCD
  *       404:
@@ -935,7 +929,7 @@ router.get('/codes/:id', authorize('stock', 'view'), getOneCode);
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               code:
  *                 type: string
  *                 example: "ABCD"
  *     responses:
@@ -949,12 +943,9 @@ router.get('/codes/:id', authorize('stock', 'view'), getOneCode);
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 name:
+ *                 code:
  *                   type: string
  *                   example: "ABCD"
- *                 slug:
- *                   type: string
- *                   example: "abcd"
  *       404:
  *         description: Not Found
  */
@@ -983,7 +974,7 @@ router.post('/codes', authorize('stock', 'manage'), validateRequest(productCodeV
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               code:
  *                 type: string
  *                 example: "ABCD"
  *     responses:
@@ -997,12 +988,9 @@ router.post('/codes', authorize('stock', 'manage'), validateRequest(productCodeV
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 name:
+ *                 code:
  *                   type: string
  *                   example: "ABCD"
- *                 slug:
- *                   type: string
- *                   example: "abcd"
  *       404:
  *         description: Not Found
  */
@@ -1035,7 +1023,7 @@ router.put('/codes/:id', authorize("stock", "manage"), validateRequest(productCo
  *                 id:
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
- *                 name:
+ *                 code:
  *                   type: string
  *                   example: "ABCD"
  *                 slug:

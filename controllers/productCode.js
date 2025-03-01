@@ -15,7 +15,7 @@ const createCode = async (req, res, next) => {
       // Check if the user exists (including soft-deleted ones)
       const existingData = await ProductCodes.findOne({
           paranoid: false,
-          where: { slug: createSlug(payload.name) },
+          where: { code: payload.code },
       });
 
       if (existingData) {
@@ -129,7 +129,7 @@ const deleteOneCode = async (req, res, next) => {
 const codesDropdown = async (req, res, next) => {
   try {
     const codes = await ProductCodes.findAll({
-      attributes: [['name', 'label'], ['id', 'value']],
+      attributes: [['code', 'label'], ['id', 'value']],
     });
     
     return res.status(200).json(message(true, 'Dropdown retrieved successfully', codes));
