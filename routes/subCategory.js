@@ -17,6 +17,7 @@ const Joi = require('joi');
 // Validation schemas
 const subCategorySchema = Joi.object({
   name: Joi.string().required().min(3).max(100),
+   description : Joi.string().allow(''),
   catId : Joi.string().required()
 });
 
@@ -53,6 +54,9 @@ const subCategorySchema = Joi.object({
  *                 name:
  *                   type: string
  *                   example: ABCD
+ *                 description:
+ *                   type: string
+ *                   example: This is description
  *                 slug:
  *                   type: string
  *                   example: ABCD
@@ -128,11 +132,14 @@ router.get('/dropdown', authorize('stock', 'view'), subCategoryDropdown);
  *                   type: string
  *                   example: "gdgdgdgdcbcbcb"
  *                 catId:
- *                   type: object
- *                   example: {name: "ABCD"}
+ *                   type: string
+ *                   example: "gdgdgdgdcbcbcb"
  *                 name:
  *                   type: string
  *                   example: ABCD
+ *                 description:
+ *                   type: string
+ *                   example: This is description
  *                 slug:
  *                   type: string
  *                   example: ABCD
@@ -187,6 +194,9 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                 name:
  *                   type: string
  *                   example: ABCD
+ *                 description:
+ *                   type: string
+ *                   example: This is description
  *                 slug:
  *                   type: string
  *                   example: ABCD
@@ -247,6 +257,9 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *                 name:
  *                   type: string
  *                   example: ABCD
+ *                 description:
+ *                   type: string
+ *                   example: This is description
  *                 slug:
  *                   type: string
  *                   example: ABCD

@@ -15,6 +15,11 @@ const PRODUCT_STATUS = {
   DISCONTINUED: 'discontinued',
   PUBLISH: 'publish'
 };
+export const TAGS = {
+  ON_SALE: 'on_sale',
+  BEST_SELLING: 'best_selling',
+  FEATURE: 'Feature',
+};
 
 const Product = sequelize.define('Product', {
     id: {
@@ -84,6 +89,12 @@ const Product = sequelize.define('Product', {
       defaultValue: 0,
       validate: { min: 0 },
     },
+    tags: {
+      type: DataTypes.ARRAY(Object.values(TAGS)), // Array of UUIDs
+      allowNull: true, // Allows null values
+      defaultValue: [], // Default to an empty array
+      comment: 'Array of website IDs where product is published'
+    },
     // Foreign Keys
     catalogId: {
       type: DataTypes.UUID,
@@ -100,6 +111,7 @@ const Product = sequelize.define('Product', {
       allowNull: true,
       references: { model: SubCategory, key: 'id' }
     },
+    
     websiteId: {
       type: DataTypes.ARRAY(DataTypes.UUID), // Array of UUIDs
       allowNull: true, // Allows null values
@@ -257,4 +269,4 @@ SubCategory.hasMany(Product, { foreignKey: 'subCategoryId', onDelete: 'SET NULL'
 Product.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(Product, { foreignKey: 'userId' });
 
-module.exports = { Product, PRODUCT_STATUS };
+module.exports = { Product, PRODUCT_STATUS, TAGS };

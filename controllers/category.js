@@ -168,9 +168,9 @@ const categoryList = async (req, res, next) => {
 
     // Get the paginated rows
     const rows = await Category.findAll({
-      attributes: [['name', 'label'], ['id', 'value']],
+      attributes: [['name', 'label'], ['id', 'value'], ['productCount', 'count'], ['slug', 'slug']],
       order: [['name', 'DESC']],
-      include:[{model : Subcategory, attributes: [['name', 'label'], ['id', 'value']], as : 'sub_categories'}],
+      include:[{model : Subcategory, attributes: [['name', 'label'], ['id', 'value'],  ['slug', 'slug']], as : 'sub_categories'}],
       limit: parseInt(pageSize, 10),
       offset,
     });

@@ -8,7 +8,7 @@ const {
   deleteOne,
   updateStatus,
   productDropdown,
-  getProductsByAttribute,
+  attributeList,
   productList
 } = require('../controllers/product');
 const upload = require('../utils/upload');
@@ -63,9 +63,9 @@ const validationSchema = Joi.object({
   }),
   pricing: Joi.array().items(Joi.object({
     currency: Joi.string().valid('USD', 'AED', 'GBP').allow('').optional(),
-    discountType: Joi.string().valid('percentage', 'fixed').allow('').optional(),
     basePrice: Joi.number().optional(),
-    discountValue: Joi.number().optional(),
+    discountType: Joi.string().valid('percentage', 'fixed').allow('').optional(),
+    discountValue: Joi.number().allow('').optional(),
     finalPrice: Joi.number().optional()
   })).optional()
 });
@@ -229,8 +229,6 @@ router.get('/', authorize('stock', 'view'), getAll);
  *     tags:
  *     - Product
  *     summary: Get products for websites
- *     security:
- *     - Bearer: []  # Reference to the security scheme
  *     parameters:
  *       - in: query
  *         name: attributes
@@ -367,8 +365,6 @@ router.get('/list', productList);
  *     tags:
  *     - Product
  *     summary: Get all product
- *     security:
- *     - Bearer: []  # Reference to the security scheme
  *     parameters:
  *       - in: query
  *         name: attributeName
@@ -398,7 +394,7 @@ router.get('/list', productList);
  *       404:
  *         description: Not Found
  */
-router.get('/attributes', getProductsByAttribute);
+router.get('/attributes', attributeList);
 
 /**
  * @openapi

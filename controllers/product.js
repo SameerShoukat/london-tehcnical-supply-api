@@ -4,7 +4,7 @@ const _ = require("lodash");
 const sequelize = require('../config/database');
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
-const {Product, PRODUCT_STATUS} = require('../models/products/index');
+const {Product, PRODUCT_STATUS, TAGS} = require('../models/products/index');
 const Catalog = require('../models/catalog');
 const Category = require('../models/category');
 const Website = require('../models/website');
@@ -106,8 +106,8 @@ const create = async (req, res, next) => {
         pricing.map(price => ({
           productId: product.id,
           currency : price.currency,
-          discountType : price.discountType,
-          discountValue : price.discountValue,
+          discountType : price.discountType || '',
+          discountValue : price.discountValue || 0,
           basePrice : price.basePrice,
         })),
         { transaction }
@@ -282,8 +282,8 @@ const updateOne = async (req, res, next) => {
           payload.pricing.map(price => ({
             productId: id,
             currency: price.currency,
-            discountType: price.discountType,
-            discountValue: price.discountValue,
+            discountType: price?.discountType || '',
+            discountValue: price?.discountValue || 0,
             basePrice: price.basePrice,
           })),
           { transaction }
@@ -375,113 +375,56 @@ const productDropdown = async (req, res, next) => {
   }
 };
 
-
-// website route
-
-const getProductForWebsite = async (req, res, next) => {
+const addTags = async (req, res, next) => {
   try {
-    const {
-      catalogId,
-      categoryId,
-      subCategoryId,
-      websiteId,
-      attributes, // Can be a JSON string or an object, e.g., { brand: 'Mercedes' }
-      page = 1,
-      offset = 0,
-      pageSize = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'DESC',
-    } = req.query;
+    const product = await findProduct(req.params.id);
+    const tag = req?.query?.tag;
 
-    // Build base where clause for the Product model
-    const where = _.pickBy({ catalogId, categoryId, subCategoryId, websiteId }, _.identity);
-
-    // Validate and normalize sort parameters
-    const validSortColumns = ['createdAt', 'name'];
-    const validSortOrders = ['ASC', 'DESC'];
-    const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'createdAt';
-    const sortDir = validSortOrders.includes(sortOrder.toUpperCase())
-      ? sortOrder.toUpperCase()
-      : 'DESC';
-    const order = [[sortColumn, sortDir]];
-
-    // Process attribute filtering:
-    // If 'attributes' is already an object, use it directly.
-    let attributeFilter = {};
-    if (attributes) {
-      if (typeof attributes === 'object') {
-        attributeFilter = attributes;
-      } else {
-        try {
-          attributeFilter = JSON.parse(attributes);
-        } catch (error) {
-          return res.status(400).json({ message: 'Invalid attributes format' });
-        }
-      }
+    if (!tag || !Object.values(TAGS).includes(req.query.tag)) {
+      throw boom.badRequest(`Invalid status. Must be one of: ${Object.values(PRODUCT_STATUS).join(', ')}`);
     }
 
-    let productIds = [];
-    if (Object.keys(attributeFilter).length > 0) {
-      // attributeFilter is in the form { brand: 'Mercedes', ... }
-      const attributeNames = Object.keys(attributeFilter);
-
-      // Retrieve the corresponding Attribute records (assuming Attribute model stores the attribute names)
-      const attributeRecords = await Attribute.findAll({
-        where: { name: attributeNames },
-      });
-
-      // If some attribute names are not found, then no product can match the filter.
-      if (attributeRecords.length !== attributeNames.length) {
-        return res.status(200).json(message(true, 'Products retrieved successfully', [], 0));
+      // Only add the tag if it's not already present.
+      if (!product.tags.includes(tag)) {
+        product.tags.push(tag);
       }
 
-      // Build conditions for filtering in ProductAttribute.
-      // For each attribute record, filter on its ID and the expected value.
-      const conditions = attributeRecords.map(attr => ({
-        attributeId: attr.id,
-        value: attributeFilter[attr.name],
-      }));
+    // // Check if the query contains 'selling' (e.g., ?selling=true) to remove the best_selling tag.
+    // if (req.query.selling) {
+    //   product.tags = product.tags.filter(tag => tag !== TAGS.BEST_SELLING);
+    // }
+    await product.save();
+    return res.status(200).json(message(true, 'Product tags added successfully'));
+  } catch (error) {
+    next(error);
+  }
+};
 
-      // Query ProductAttribute to find products matching any of the conditions,
-      // and then group by productId and use HAVING to ensure all conditions are met.
-      const productAttributes = await ProductAttribute.findAll({
-        attributes: ['productId'],
-        where: {
-          [Op.or]: conditions,
-        },
-        group: ['productId'],
-        having: sequelize.literal(`COUNT(DISTINCT "attributeId") = ${conditions.length}`),
-      });
-      
-   
-
-      productIds = productAttributes.map(pa => pa.productId);
-
-      // If no matching products, return an empty result early.
-      if (productIds.length === 0) {
-        return res.status(200).json(message(true, 'Products retrieved successfully', [], 0));
-      }
-
-      // Add the found product IDs to the main query.
-      where.id = { [Op.in]: productIds };
+const removeTags = async (req, res, next) => {
+  try {
+    const product = await findProduct(req.params.id);
+    const tag = req?.query?.tag;
+    
+    if (!tag || !Object.values(TAGS).includes(req.query.tag)) {
+      throw boom.badRequest(`Invalid status. Must be one of: ${Object.values(PRODUCT_STATUS).join(', ')}`);
     }
 
-    // Retrieve products with pagination and sorting.
-    const { count, rows } = await Product.findAndCountAll({
-      where,
-      limit: pageSize,
-      offset: (page - 1) * pageSize + parseInt(offset, 10),
-      order,
-    });
-
-    return res.status(200).json(message(true, 'Products retrieved successfully', rows, count));
+    // // Check if the query contains 'selling' (e.g., ?selling=true) to remove the best_selling tag.
+    if (product.tags.includes(tag)) {
+      product.tags = product.tags.filter(tag => tag !== TAGS.BEST_SELLING);
+    }
+    await product.save();
+    return res.status(200).json(message(true, 'Product tags removed successfully'));
   } catch (error) {
     next(error);
   }
 };
 
 
-const getProductsByAttribute = async (req, res, next) =>{
+
+
+
+const attributeList = async (req, res, next) =>{
   try{
     const {attributeName} =  req.query
     if(!attributeName) throw boom.badRequest("Attribute is require to access this endpoint")
@@ -502,7 +445,7 @@ const getProductsByAttribute = async (req, res, next) =>{
 
     const results = await ProductAttribute.findAll({
       attributes: [
-        'value',
+        ['value', 'name'],
         [sequelize.fn('COUNT', sequelize.col('productId')), 'productCount'],
         'attributeId' // Include attributeId
       ],
@@ -688,6 +631,8 @@ module.exports = {
   deleteOne,
   updateStatus,
   productDropdown,
-  getProductsByAttribute,
-  productList
+  attributeList,
+  productList,
+  addTags,
+  removeTags
 };

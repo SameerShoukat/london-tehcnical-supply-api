@@ -3,6 +3,8 @@ const sequelize = require('../../config/database');
 const User = require('../users');
 const {Product} = require('./index');
 const Vendor = require("../vendor");
+const _ = require("lodash");
+const boom = require("@hapi/boom");
 
 const PURCHASE_STATUS = {
   PENDING: 'pending',
@@ -48,7 +50,7 @@ const Purchase = sequelize.define('Purchase', {
           isValidTotal(value) {
             const calculated = parseFloat((this.quantity * this.costPrice).toFixed(2));
             if (parseFloat(value) !== calculated) {
-              throw new Error('Total amount must equal quantity * costPrice');
+              throw boom.badImplementation('Total amount must equal quantity * costPrice');
             }
           }
         }
@@ -101,7 +103,11 @@ const Purchase = sequelize.define('Purchase', {
         },
         beforeCreate: async (purchase) => {
           const product = await Product.findByPk(purchase.productId);
-          if (!product) throw new Error('Product not found');
+          if (!product) throw boom.badRequest('Product not found');
+        },
+        beforeUpdate: async (purchase) => {
+          const product = await Product.findByPk(purchase.productId);
+          if (!product) throw boom.badRequest('Product not found');
         },
         afterCreate: async (purchase) => {
           if (purchase.status !== PURCHASE_STATUS.COMPLETED) return;
@@ -111,6 +117,24 @@ const Purchase = sequelize.define('Purchase', {
           if (purchase.changed('status') || purchase.changed('quantity')) {
             const previousStatus = purchase.previous('status');
             const previousQuantity = purchase.previous('quantity');
+            const previousProductId = purchase.previous('productId');
+
+            if (purchase.changed('productId')) {
+              // Subtract quantity from previous product if its status was completed
+              if (previousStatus === PURCHASE_STATUS.COMPLETED) {
+                const previousProduct = await Product.findByPk(previousProductId);
+                if (previousProduct) {
+                  let newStock = Number(previousProduct.inStock) - Number(previousQuantity);
+                  if (newStock < 0) {
+                    throw boom.badImplementation('Stock cannot be negative');
+                  }
+                  await previousProduct.update({ 
+                    inStock: newStock,
+                    version: previousProduct.version + 1
+                  });
+                }
+              }
+            }
 
             // Only update stock if there's an actual change that impacts inventory
             if (purchase.status === PURCHASE_STATUS.COMPLETED || 
@@ -132,9 +156,10 @@ const Purchase = sequelize.define('Purchase', {
 const updateProductStock = async (purchase, previousQuantity, previousStatus, action) => {
   try {
       const product = await Product.findByPk(purchase.productId);
-      if (!product) {
-          throw new Error('Product not found');
-      }
+      if (!product){
+        if(action === 'destroy') return true;
+          throw boom.notFound("Product not found")
+        }
       
       let newStock =  Number(product.inStock); // Start with current stock
       
@@ -167,7 +192,7 @@ const updateProductStock = async (purchase, previousQuantity, previousStatus, ac
       console.log('New stock:', newStock); // For debugging
 
       if (newStock < 0) {
-          throw new Error('Stock cannot be negative');
+          throw boom.badImplementation('Stock cannot be negative');
       }
 
 
@@ -178,7 +203,7 @@ const updateProductStock = async (purchase, previousQuantity, previousStatus, ac
       });
   } catch (error) {
       console.error('Error updating product stock:', error);
-      throw error;
+      throw boom.badRequest(error.message);
   }
 }
 // Define associations
