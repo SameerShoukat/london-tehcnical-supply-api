@@ -383,16 +383,10 @@ const addTags = async (req, res, next) => {
     if (!tag || !Object.values(TAGS).includes(req.query.tag)) {
       throw boom.badRequest(`Invalid status. Must be one of: ${Object.values(PRODUCT_STATUS).join(', ')}`);
     }
-
-      // Only add the tag if it's not already present.
-      if (!product.tags.includes(tag)) {
-        product.tags.push(tag);
-      }
-
-    // // Check if the query contains 'selling' (e.g., ?selling=true) to remove the best_selling tag.
-    // if (req.query.selling) {
-    //   product.tags = product.tags.filter(tag => tag !== TAGS.BEST_SELLING);
-    // }
+    
+    if (!product.tags.includes(tag)) {
+      product.tags.push(tag);
+    }
     await product.save();
     return res.status(200).json(message(true, 'Product tags added successfully'));
   } catch (error) {
@@ -445,12 +439,12 @@ const attributeList = async (req, res, next) =>{
 
     const results = await ProductAttribute.findAll({
       attributes: [
-        ['value', 'name'],
-        [sequelize.fn('COUNT', sequelize.col('productId')), 'productCount'],
-        'attributeId' // Include attributeId
+      'value',
+      [sequelize.fn('COUNT', sequelize.col('productId')), 'productCount'],
+      'attributeId' // Include attributeId
       ],
       where: {
-        attributeId: attribute.id, // Filter by the attribute ID
+      attributeId: attribute.id, // Filter by the attribute ID
       },
       group: ['value', 'attributeId'], // Group by both value and attributeId
       order: [['value', 'ASC']],

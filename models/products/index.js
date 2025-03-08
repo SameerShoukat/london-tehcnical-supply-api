@@ -1,4 +1,4 @@
-const { DataTypes, Op } = require('sequelize'); // Add Op for array operations
+const { DataTypes } = require('sequelize'); // Add Op for array operations
 const sequelize = require('../../config/database');
 const { createSlug } = require('../../utils/hook');
 const Category = require('../category');
@@ -6,7 +6,7 @@ const SubCategory = require('../subCategory');
 const User = require('../users');
 const Catalog = require('../catalog');
 const Website = require('../website');
-const ProductCodes = require('./codes')
+const ProductCodes = require('./codes');
 
 const PRODUCT_STATUS = {
   ACTIVE: 'active',
@@ -15,10 +15,10 @@ const PRODUCT_STATUS = {
   DISCONTINUED: 'discontinued',
   PUBLISH: 'publish'
 };
-export const TAGS = {
+const TAGS = {
   ON_SALE: 'on_sale',
   BEST_SELLING: 'best_selling',
-  FEATURE: 'Feature',
+  FEATURE: 'Feature'
 };
 
 const Product = sequelize.define('Product', {
@@ -116,17 +116,6 @@ const Product = sequelize.define('Product', {
       type: DataTypes.ARRAY(DataTypes.UUID), // Array of UUIDs
       allowNull: true, // Allows null values
       defaultValue: [], // Default to an empty array
-      // validate: {
-      //   isValidWebsiteIds(value) {
-      //     if (value && Array.isArray(value) && value.length) {
-      //       value.forEach((id) => {
-      //         if (!isUUID(id)) {
-      //           throw new Error('Each websiteId must be a valid UUID');
-      //         }
-      //       });
-      //     }
-      //   }
-      // },
       comment: 'Array of website IDs where product is published'
     },
     userId: {
@@ -190,14 +179,12 @@ const Product = sequelize.define('Product', {
       afterUpdate: async (product) => {
         try {
           if (product.changed('catalogId')) {
-            console.log("update catalog id trigger")
             const oldCatalogId = product.previous('catalogId');
             const newCatalogId = product.catalogId;
             if (oldCatalogId) await Catalog.decrement('productCount', { by: 1, where: { id: oldCatalogId } });
             if (newCatalogId) await Catalog.increment('productCount', { by: 1, where: { id: newCatalogId } });
           }
           if (product.changed('catId')) {
-            console.log("update catId trigger")
             const oldCatId = product.previous('catId');
             const newCatId = product.catId;
             if (oldCatId) await Category.decrement('productCount', { by: 1, where: { id: oldCatId } });
