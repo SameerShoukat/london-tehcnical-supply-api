@@ -18,7 +18,7 @@ const PRODUCT_STATUS = {
 const TAGS = {
   ON_SALE: 'on_sale',
   BEST_SELLING: 'best_selling',
-  FEATURE: 'Feature'
+  FEATURE: 'feature'
 };
 
 const Product = sequelize.define('Product', {
@@ -90,10 +90,10 @@ const Product = sequelize.define('Product', {
       validate: { min: 0 },
     },
     tags: {
-      type: DataTypes.ARRAY(Object.values(TAGS)), // Array of UUIDs
-      allowNull: true, // Allows null values
-      defaultValue: [], // Default to an empty array
-      comment: 'Array of website IDs where product is published'
+      type: DataTypes.ARRAY(DataTypes.UUID), 
+      allowNull: true, 
+      defaultValue: [], 
+      comment: 'Array of tags'
     },
     // Foreign Keys
     catalogId: {

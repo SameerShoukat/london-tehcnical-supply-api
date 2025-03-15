@@ -147,7 +147,7 @@ const catalogList = async (req, res, next) => {
 
     // Get the paginated rows
     const rows = await Catalog.findAll({
-      attributes: [['name', 'label'], ['id', 'value'], ['images', 'images'], ['productCount', 'count']],
+      attributes: [['name', 'label'], ['id', 'value'], ['slug', 'slug'], ['images', 'images'], ['productCount', 'count']],
       order: [['name', 'DESC']],
       limit: parseInt(pageSize, 10),
       offset,

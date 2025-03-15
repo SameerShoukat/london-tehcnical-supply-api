@@ -9,7 +9,10 @@ const {
   updateStatus,
   productDropdown,
   attributeList,
-  productList
+  productList,
+  assignTag,
+  removeTag,
+  getProductDetail
 } = require('../controllers/product');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
@@ -224,142 +227,6 @@ router.get('/', authorize('stock', 'view'), getAll);
 
 /**
  * @openapi
- * '/api/product/list':
- *  get:
- *     tags:
- *     - Product
- *     summary: Get products for websites
- *     parameters:
- *       - in: query
- *         name: attributes
- *         schema:
- *           type: string
- *           example: '{"brand": "Mercedes", "color": "Red"}'
- *         description: Filter by attributes
- *       - in: query
- *         name: catalogId
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Filter by catalog ID
- *       - in: query
- *         name: categoryId
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Filter by category ID
- *       - in: query
- *         name: subCategoryId
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Filter by sub-category ID
- *       - in: query
- *         name: websiteId
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Filter by website ID
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
- *           default: 0
- *         description: Pagination offset
- *       - in: query
- *         name: pageSize
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of items per page
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                   format: uuid
- *                   example: "550e8400-e29b-41d4-a716-446655440000"
- *                 catalogId:
- *                   type: string
- *                   format: uuid
- *                   example: "123e4567-e89b-12d3-a456-426614174000"
- *                 categoryId:
- *                   type: string
- *                   format: uuid
- *                   example: "987fcdeb-51a2-4321-9b42-789012345678"
- *                 subCategoryId:
- *                   type: string
- *                   format: uuid
- *                   example: "456e789a-b12c-3def-4567-890123456789"
- *                 websiteId:
- *                   type: string
- *                   format: uuid
- *                   example: "789abcde-f123-4567-89ab-cdef01234567"
- *                 name:
- *                   type: string
- *                   example: "Power Tool XL2000"
- *                 slug:
- *                   type: string
- *                   example: "power-tool-xl2000"
- *                 description:
- *                   type: string
- *                   example: "Professional grade power tool with advanced features"
- *                 inStock:
- *                   type: integer
- *                   example: 50
- *                 costPrice:
- *                   type: number
- *                   example: 85.5
- *                 costPriceCurrency:
- *                   type: string
- *                   example: "USD"
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
- *                 attributes:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       attrId:
- *                         type: string
- *                         format: uuid
- *                         example: "123e4567-e89b-12d3-a456-426614174000"
- *                       value:
- *                         type: string
- *                         example: "Red"
- *                 pricing:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       currency:
- *                         type: string
- *                         example: "USD"
- *                       basePrice:
- *                         type: number
- *                         example: 99.99
- *                       discountType:
- *                         type: string
- *                         example: "percentage"
- *                       discountValue:
- *                         type: number
- *                         example: 10
- *                       finalPrice:
- *                         type: string
- *                         example: "89.99"
- *       404:
- *         description: Not Found
- */
-router.get('/list', productList);
-
-/**
- * @openapi
  * '/api/product/attributes':
  *  get:
  *     tags:
@@ -561,6 +428,288 @@ router.get('/codes', authorize('stock', 'view'), getAllCodes);
  *         description: Not Found
  */
 router.get('/:id', authorize('stock', 'view'), getOne);
+
+/**
+ * @openapi
+ * '/api/product/list':
+ *   post:
+ *     tags:
+ *       - Product
+ *     summary: Get product by filter
+ *     parameters:
+ *       - in: query
+ *         name: websiteId
+ *         schema:
+ *           type: string
+ *         description: Filter by websiteId
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Pagination offset
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               categories:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["tires__wheels"]
+ *               subcategories:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["all-season_tires"]
+ *               brands:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Ford Performance", "Enkei"]
+ *               vehicle_type:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Electric", "suv"]
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   format: uuid
+ *                 name:
+ *                   type: string
+ *                 sku:
+ *                   type: string
+ *                 inStock:
+ *                   type: integer
+ *                 costPriceCurrency:
+ *                   type: string
+ *                   enum: [USD, AED, GBP]
+ *                 costPrice:
+ *                   type: number
+ *                 catalogId:
+ *                   type: string
+ *                   format: uuid
+ *                 catId:
+ *                   type: string
+ *                   format: uuid
+ *                 websiteId:
+ *                   type: string
+ *                   format: uuid
+ *                 subCategoryId:
+ *                   type: string
+ *                   format: uuid
+ *                 description:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                   enum: [active, inactive, draft, discontinued, publish]
+ *                 attributes:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       attributeId:
+ *                         type: string
+ *                       value:
+ *                         type: string
+ *                 images:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       404:
+ *         description: Not Found
+ */
+router.post('/list', productList);
+
+
+/**
+ * @openapi
+ * '/api/product/details/{slug}':
+ *  get:
+ *     tags:
+ *     - Product
+ *     summary: Get product details by slug
+ *     parameters:
+ *     - name: slug
+ *       in: path
+ *       required: true
+ *       description: Slug of the product
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Product details retrieved successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "gdgdgdgdcbcbcb"
+ *                     sku:
+ *                       type: string
+ *                       example: "PDX200"
+ *                     name:
+ *                       type: string
+ *                       example: "Power Drill X200"
+ *                     slug:
+ *                       type: string
+ *                       example: "power-drill-x200"
+ *                     images:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         example: "https://example.com/image.jpg"
+ *                     status:
+ *                       type: string
+ *                       example: "active"
+ *                     tags:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         example: "on_sale"
+ *                     inStock:
+ *                       type: integer
+ *                       example: 100
+ *                     description:
+ *                       type: string
+ *                       example: "Professional grade power drill with variable speed control"
+ *                     productPricing:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           currency:
+ *                             type: string
+ *                             example: "GBP"
+ *                           discountType:
+ *                             type: string
+ *                             example: "percentage"
+ *                           discountValue:
+ *                             type: number
+ *                             example: 10
+ *                           basePrice:
+ *                             type: number
+ *                             example: 299.99
+ *                           finalPrice:
+ *                             type: number
+ *                             example: 269.99
+ *                     productAttributes:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           value:
+ *                             type: string
+ *                             example: "18V"
+ *                           attribute:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                                 example: "Battery Voltage"
+ *                     category:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           example: "Tools"
+ *                         slug:
+ *                           type: string
+ *                           example: "tools"
+ *                     subcategory:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           example: "Power Tools"
+ *                         slug:
+ *                           type: string
+ *                           example: "power-tools"
+ *       404:
+ *         description: Product not found
+ */
+router.get('/details/:slug', getProductDetail);
+
+
+/**
+ * @openapi
+ * '/api/product/assignTag':
+ *   post:
+ *     tags:
+ *       - Product
+ *     summary: Assign tag to product
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tag:
+ *                 type: string
+ *                 example: on_sale
+ *     responses:
+ *       200:
+ *         description: Tag has been assigned to product
+ *       404:
+ *         description: Not Found
+ */
+router.post('/assignTag', assignTag);
+
+/**
+ * @openapi
+ * '/api/product/removeTag':
+ *   post:
+ *     tags:
+ *       - Product
+ *     summary: Remove tag from product
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tag:
+ *                 type: string
+ *                 example: on_sale
+ *     responses:
+ *       200:
+ *         description: Tag has been assigned to product
+ *       404:
+ *         description: Not Found
+ */
+router.post('/removeTag', removeTag);
 
 /**
  * @openapi
@@ -843,9 +992,8 @@ router.delete('/:id', authorize("stock", "delete"), deleteOne);
 router.patch('/active/:id', authorize('stock', 'manage'), updateStatus);
 
 
+
 // product codes
-
-
 /**
  * @openapi
  * '/api/product/codes/dropdown':
