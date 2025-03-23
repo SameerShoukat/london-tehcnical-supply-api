@@ -2,7 +2,7 @@ const _ = require("lodash");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
 const ProductQuote = require('../models/products/quotes');
-const Product = require('../models/products');
+const {Product} = require('../models/products');
 
 // Create a new quote request
 const createQuote = async (req, res, next) => {
@@ -23,6 +23,7 @@ const getAllQuotes = async (req, res, next) => {
     const whereClause = {};
     if (status) whereClause.status = status;
     if (productId) whereClause.productId = productId;
+
     const count = await ProductQuote.count({ where: whereClause });
 
     const rows = await ProductQuote.findAll({
@@ -49,6 +50,7 @@ const getAllQuotes = async (req, res, next) => {
 const getOneQuote = async (req, res, next) => {
   try {
     const { id } = req.params;
+
     const quote = await ProductQuote.findByPk(id, {
       include: [
         {
@@ -60,6 +62,7 @@ const getOneQuote = async (req, res, next) => {
     });
 
     if (!quote) throw boom.notFound('Quote request not found');
+
     return res.status(200).json(message(true, 'Quote request retrieved successfully', quote));
   } catch (error) {
     next(error);
@@ -69,7 +72,9 @@ const getOneQuote = async (req, res, next) => {
 // Update a quote by ID (admin function)
 const updateOneQuote = async (req, res, next) => {
   try {
+
     const { id } = req.params;
+
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     
     const quote = await ProductQuote.findByPk(id);
@@ -89,13 +94,11 @@ const deleteOneQuote = async (req, res, next) => {
   try {
     const { id } = req.params;
     const quote = await ProductQuote.findByPk(id);
-    
+
     if (!quote) {
       throw boom.notFound('Quote request not found');
     }
-
-    await quote.destroy(); // soft delete
-
+    await quote.destroy();
     return res.status(200).json(message(true, 'Quote request deleted successfully'));
   } catch (error) {
     next(error);
@@ -105,6 +108,7 @@ const deleteOneQuote = async (req, res, next) => {
 // Update quote status (admin function)
 const updateQuoteStatus = async (req, res, next) => {
   try {
+    
     const { id } = req.params;
     const { status } = req.body;
     
@@ -131,7 +135,6 @@ const getUserQuotes = async (req, res, next) => {
     
     const whereClause = {
       [sequelize.Op.or]: [
-        { userId: req.user.id },
         { email: req.user.email }
       ]
     };

@@ -178,7 +178,6 @@ const getAll = async (req, res, next) => {
   }
 };
 
-
 const getOne = async (req, res, next) => {
   try {
     console.log(req.params.id)
@@ -375,23 +374,38 @@ const productDropdown = async (req, res, next) => {
   }
 };
 
-
 const assignTag = async (req, res, next) => {
   try {
+    const { tag: newTags, productId } = req.body;
 
-    const product = await findProduct(req.params.id);
-    const tag = req?.query?.tag;
+    const product = await Product.findByPk(productId);
+    if (!product) throw boom.notFound("Product not found");
 
-    if (!tag || !Object.values(TAGS).includes(req.query.tag)) {
-      throw boom.badRequest(`Invalid status. Must be one of: ${Object.values(PRODUCT_STATUS).join(', ')}`);
+    // Ensure newTags is an array
+    const tagsToAdd = Array.isArray(newTags) ? newTags : [newTags];
+    if (tagsToAdd.length === 0) {
+      throw boom.badRequest("No tags provided");
     }
-    
-    if (!product.tags.includes(tag)) {
-      product.tags.push(tag);
+
+    // Validate each tag
+    const invalidTags = tagsToAdd.filter(tag => !Object.values(TAGS).includes(tag));
+    if (invalidTags.length > 0) {
+      throw boom.badRequest(`Invalid tags: ${invalidTags.join(', ')}. Valid tags are: ${Object.values(TAGS).join(', ')}`);
     }
 
-    await product.save();
-    return res.status(200).json(message(true, 'Product tags added successfully'));
+    // Get current tags and filter out duplicates
+    const currentTags = product.tags || [];
+    const uniqueNewTags = tagsToAdd.filter(tag => !currentTags.includes(tag));
+
+    if (uniqueNewTags.length === 0) {
+      throw boom.conflict("All tags already exist on the product");
+    }
+
+    // Merge and update
+    const updatedTags = [...currentTags, ...uniqueNewTags];
+    await product.update({ tags: updatedTags });
+
+    return res.status(200).json(message(true, 'Product tags added successfully', product));
   } catch (error) {
     next(error);
   }
@@ -399,23 +413,45 @@ const assignTag = async (req, res, next) => {
 
 const removeTag = async (req, res, next) => {
   try {
-    const product = await findProduct(req.params.id);
-    const tag = req?.query?.tag;
-    
-    if (!tag || !Object.values(TAGS).includes(req.query.tag)) {
-      throw boom.badRequest(`Invalid status. Must be one of: ${Object.values(PRODUCT_STATUS).join(', ')}`);
+    const { tag: tagsToRemove, productId } = req.body; 
+
+    const product = await Product.findByPk(productId);
+    if (!product) throw boom.notFound("Product not found");
+
+    // Validate tags format
+    const tags = Array.isArray(tagsToRemove) 
+      ? tagsToRemove 
+      : [tagsToRemove].filter(Boolean);
+      
+    if (tags.length === 0) {
+      throw boom.badRequest("No tags provided");
     }
 
-    if (product.tags.includes(tag)) {
-      product.tags = product.tags.filter(tag => tag !== tag);
+    // Validate tag values
+    const invalidTags = tags.filter(tag => !Object.values(TAGS).includes(tag));
+    if (invalidTags.length > 0) {
+      throw boom.badRequest(
+        `Invalid tags: ${invalidTags.join(', ')}. Valid tags: ${Object.values(TAGS).join(', ')}`
+      );
     }
-    await product.save();
-    return res.status(200).json(message(true, 'Product tags removed successfully'));
+
+    // Check existing tags
+    const currentTags = product.tags || [];
+    
+    const missingTags = tags.filter(tag => !currentTags.includes(tag));
+    if (missingTags.length > 0) {
+      throw boom.conflict(`Tags not found: ${missingTags.join(', ')}`);
+    }
+
+    // Remove tags
+    const updatedTags = currentTags.filter(t => !tags.includes(t));
+    await product.update({ tags: updatedTags });
+
+    return res.status(200).json(message(true, 'Tags removed successfully', product));
   } catch (error) {
     next(error);
   }
 };
-
 
 const attributeList = async (req, res, next) =>{
   try{
@@ -457,7 +493,6 @@ const attributeList = async (req, res, next) =>{
     next(error)
   }
 }
-
 
 const productList = async (req, res, next) => {
   try {
@@ -586,9 +621,6 @@ const productList = async (req, res, next) => {
     next(error);
   }
 };
-
-
-
 
 const getProductDetail = async (req, res, next) => {
   try {

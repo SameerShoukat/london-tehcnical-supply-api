@@ -2,15 +2,16 @@ const _ = require("lodash");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
 const ProductReview = require('../models/products/reviews');
-const Product = require('../models/products');
+const {Product} = require('../models/products');
+const sequelize = require('../config/database');
 
 // Create a new review
 const createReview = async (req, res, next) => {
   try {
 
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+
     const existingReview = await ProductReview.findOne({
-      paranoid: false,
       where: { 
         productId: payload.productId,
         email : payload.email
@@ -18,13 +19,7 @@ const createReview = async (req, res, next) => {
     });
 
     if (existingReview) {
-      if (existingReview.deletedAt) {
-        await existingReview.restore();
-        await existingReview.update(payload);
-        return res.status(201).json(message(true, 'Product review created successfully', existingReview));
-      } else {
         throw boom.conflict('You have already reviewed this product');
-      }
     }
 
     const review = await ProductReview.create(payload);
@@ -37,6 +32,7 @@ const createReview = async (req, res, next) => {
 // Get all reviews with optional filtering
 const getAllReviews = async (req, res, next) => {
   try {
+
     const { offset = 0, pageSize = 10, productId, status } = req.query;
     
     const whereClause = {};
@@ -68,7 +64,9 @@ const getAllReviews = async (req, res, next) => {
 // Get a single review by ID
 const getOneReview = async (req, res, next) => {
   try {
+
     const { id } = req.params;
+
     const review = await ProductReview.findByPk(id, {
       include: [
         {
@@ -78,7 +76,9 @@ const getOneReview = async (req, res, next) => {
         }
       ]
     });
+
     if (!review) throw boom.notFound('Product review not found');
+    
     return res.status(200).json(message(true, 'Product review retrieved successfully', review));
   } catch (error) {
     next(error);
@@ -88,6 +88,7 @@ const getOneReview = async (req, res, next) => {
 // Update a review by ID
 const updateOneReview = async (req, res, next) => {
   try {
+
     const { id } = req.params;
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     
@@ -106,6 +107,7 @@ const updateOneReview = async (req, res, next) => {
 // Delete a review by ID
 const deleteOneReview = async (req, res, next) => {
   try {
+
     const { id } = req.params;
     const review = await ProductReview.findByPk(id);
     
@@ -124,7 +126,9 @@ const deleteOneReview = async (req, res, next) => {
 // Update review status (admin function)
 const updateReviewStatus = async (req, res, next) => {
   try {
+
     const { id } = req.params;
+    
     const { status } = req.body;
     
     if (!['pending', 'approved', 'rejected'].includes(status)) {

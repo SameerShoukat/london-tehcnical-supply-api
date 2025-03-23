@@ -1,13 +1,27 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/database');
-const Product = require('../products');
+const {Product} = require('./index');
 
-const ProductQuote = sequelize.define('ProductQuote', {
+const REVIEW_STATUS = {
+  PENDING : 'pending',
+  APPROVED :  'approved',
+  REJECTED : 'rejected'
+}
+
+const ProductReview = sequelize.define('ProductReview', {
   id: {
     type: DataTypes.UUID,
     primaryKey: true,
     defaultValue: DataTypes.UUIDV4,
     allowNull: false
+  },
+  rating: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      min: 1,
+      max: 5
+    }
   },
   name: {
     type: DataTypes.STRING,
@@ -24,14 +38,14 @@ const ProductQuote = sequelize.define('ProductQuote', {
       notEmpty: true
     }
   },
-  phone: {
+  title: {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {
       notEmpty: true
     }
   },
-  message: {
+  content: {
     type: DataTypes.TEXT,
     allowNull: false,
     validate: {
@@ -47,20 +61,23 @@ const ProductQuote = sequelize.define('ProductQuote', {
     }
   },
   status: {
-    type: DataTypes.ENUM('pending', 'contacted', 'completed', 'rejected'),
-    defaultValue: 'pending'
-  }
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      isIn: [Object.values(REVIEW_STATUS)]
+    },
+    defaultValue: REVIEW_STATUS.PENDING
+  },
 }, {
-  paranoid: true,
   timestamps: true,
-  tableName: 'product_quotes',
+  tableName: 'product_reviews',
   indexes: [
     { fields: ['productId'] },
-    { fields: ['email'] },
-    { fields: ['status'] }
+    { fields: ['rating'] }
   ]
 });
 
-ProductQuote.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
-Product.hasMany(ProductQuote, { foreignKey: 'productId' });
-module.exports = ProductQuote;
+ProductReview.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'SET NULL'});
+Product.hasMany(ProductReview, { foreignKey: 'productId' });
+
+module.exports = ProductReview;

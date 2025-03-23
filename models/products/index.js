@@ -90,7 +90,7 @@ const Product = sequelize.define('Product', {
       validate: { min: 0 },
     },
     tags: {
-      type: DataTypes.ARRAY(DataTypes.UUID), 
+      type: DataTypes.ARRAY(DataTypes.STRING), 
       allowNull: true, 
       defaultValue: [], 
       comment: 'Array of tags'

@@ -676,13 +676,16 @@ router.get('/details/:slug', getProductDetail);
  *               tag:
  *                 type: string
  *                 example: on_sale
+ *               productId:
+ *                 type: string
+ *                 example: 123456-cac6-417a-a68f-c47884e5a520
  *     responses:
  *       200:
  *         description: Tag has been assigned to product
  *       404:
  *         description: Not Found
  */
-router.post('/assignTag', assignTag);
+router.post('/assignTag', authorize('stock', 'manage'),  assignTag);
 
 /**
  * @openapi
@@ -703,13 +706,16 @@ router.post('/assignTag', assignTag);
  *               tag:
  *                 type: string
  *                 example: on_sale
+ *               productId:
+ *                 type: string
+ *                 example: 123456-cac6-417a-a68f-c47884e5a520
  *     responses:
  *       200:
  *         description: Tag has been assigned to product
  *       404:
  *         description: Not Found
  */
-router.post('/removeTag', removeTag);
+router.post('/removeTag', authorize('stock', 'manage'), removeTag);
 
 /**
  * @openapi
