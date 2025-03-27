@@ -1,4 +1,4 @@
-export const ORDER_STATUS = {
+const ORDER_STATUS = {
     PENDING: 'pending',
     CONFIRMED : 'confirmed',
     PROCESSING: 'processing',
@@ -9,7 +9,7 @@ export const ORDER_STATUS = {
     RETURNED: 'returned', 
 };
 
-export const PAYMENT_STATUS = {
+const PAYMENT_STATUS = {
     PENDING: 'pending',
     CAPTURED: 'captured',
     PROCESSING: 'processing',
@@ -18,22 +18,29 @@ export const PAYMENT_STATUS = {
     PARTIALLY_REFUNDED : 'partially_refunded'
 };
 
-export const ORDER_PAYMENT_STATUS = {
+const ORDER_PAYMENT_STATUS = {
     UNPAID: 'unpaid',
     PAID: 'paid',
     PARTIALLY_PAID: 'partially_paid',
 };
 
-export const CURRENCY = {
+const CURRENCY = {
     USD: 'USD',
     AED: 'AED',
     GBP: 'GBP'
 };
 
-export const ADDRESS_TYPE = { 
+const ADDRESS_TYPE = { 
     BILLING : 'billing', 
     SHIPPING : 'shipping',
     BOTH : 'both'
 }
 
+module.exports={
+    ORDER_STATUS,
+    PAYMENT_STATUS,
+    ORDER_PAYMENT_STATUS,
+    CURRENCY,
+    ADDRESS_TYPE
+}
 
