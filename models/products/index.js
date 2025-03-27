@@ -1,20 +1,24 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes } = require('sequelize'); // Add Op for array operations
 const sequelize = require('../../config/database');
-const { createSlug } = require("../../utils/hook");
+const { createSlug } = require('../../utils/hook');
 const Category = require('../category');
 const SubCategory = require('../subCategory');
 const User = require('../users');
 const Catalog = require('../catalog');
 const Website = require('../website');
-
-const MAX_STOCK = 999999;
+const ProductCodes = require('./codes');
 
 const PRODUCT_STATUS = {
   ACTIVE: 'active',
   INACTIVE: 'inactive',
   DRAFT: 'draft',
   DISCONTINUED: 'discontinued',
-  PUBLISH : 'publish'
+  PUBLISH: 'publish'
+};
+const TAGS = {
+  ON_SALE: 'on_sale',
+  BEST_SELLING: 'best_selling',
+  FEATURE: 'feature'
 };
 
 const Product = sequelize.define('Product', {
@@ -28,6 +32,11 @@ const Product = sequelize.define('Product', {
       type: DataTypes.STRING,
       unique: true,
       allowNull: false
+    },
+    productCode: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: ProductCodes, key: 'id' }
     },
     name: {
       type: DataTypes.STRING,
@@ -72,58 +81,47 @@ const Product = sequelize.define('Product', {
     inStock: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
-      validate: {
-        min: 0,
-      },
+      validate: { min: 0 },
       comment: 'Stock available for sale'
     },
     saleStock: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
-      validate: {
-        min: 0,
-      },
+      validate: { min: 0 },
+    },
+    tags: {
+      type: DataTypes.ARRAY(DataTypes.STRING), 
+      allowNull: true, 
+      defaultValue: [], 
+      comment: 'Array of tags'
     },
     // Foreign Keys
     catalogId: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: {
-        model: Catalog,
-        key: 'id'
-      }
+      references: { model: Catalog, key: 'id' }
     },
     catId: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: {
-        model: Category,
-        key: 'id'
-      }
+      references: { model: Category, key: 'id' }
     },
     subCategoryId: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: {
-        model: SubCategory,
-        key: 'id'
-      }
+      references: { model: SubCategory, key: 'id' }
     },
+    
     websiteId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      references: {
-        model: Website,
-        key: 'id'
-      }
+      type: DataTypes.ARRAY(DataTypes.UUID), // Array of UUIDs
+      allowNull: true, // Allows null values
+      defaultValue: [], // Default to an empty array
+      comment: 'Array of website IDs where product is published'
     },
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: {
-        model: User,
-        key: 'id'
-      }
+      references: { model: User, key: 'id' }
     }
   }, {
     tableName: 'products',
@@ -136,41 +134,126 @@ const Product = sequelize.define('Product', {
       { fields: ['catalogId'] },
       { fields: ['catId'] },
       { fields: ['subCategoryId'] },
-      { fields: ['websiteId'] }
+      // Removed websiteId index since arrays aren't typically indexed this way
     ],
     hooks: {
       beforeCreate: (product) => {
         if (product.name) {
-              product.slug = createSlug(product.name);
+          product.slug = createSlug(product.name);
+        }
+      },
+      afterCreate: async (product) => {
+        try {
+          if (product?.catalogId) {
+            console.log("Create catalog triggered")
+            await Catalog.increment('productCount', { by: 1, where: { id: product.catalogId } });
+          }
+          if (product?.catId) {
+            console.log("Create category triggered")
+            await Category.increment('productCount', { by: 1, where: { id: product.catId } });
+          }
+          if (product?.subCategoryId) {
+            console.log("Create sub category triggered")
+            await SubCategory.increment('productCount', { by: 1, where: { id: product.subCategoryId } });
+          }
+          if (product?.websiteId?.length > 0) {
+            console.log("Create websiteId triggered")
+            await Website.increment('productCount', {
+              by: 1,
+              where: { id: { [Op.in]: product.websiteId } }
+            });
+          }
+        } catch (error) {
+          console.error('Error in afterCreate hook:', error);
+          throw error;
         }
       },
       beforeUpdate: (product) => {
         if (product.changed('name')) {
-              product.slug = createSlug(product.name);
+          product.slug = createSlug(product.name);
         }
         if (product.changed()) {
-              product.version += 1;
+          product.version += 1;
+        }
+      },
+      afterUpdate: async (product) => {
+        try {
+          if (product.changed('catalogId')) {
+            const oldCatalogId = product.previous('catalogId');
+            const newCatalogId = product.catalogId;
+            if (oldCatalogId) await Catalog.decrement('productCount', { by: 1, where: { id: oldCatalogId } });
+            if (newCatalogId) await Catalog.increment('productCount', { by: 1, where: { id: newCatalogId } });
+          }
+          if (product.changed('catId')) {
+            const oldCatId = product.previous('catId');
+            const newCatId = product.catId;
+            if (oldCatId) await Category.decrement('productCount', { by: 1, where: { id: oldCatId } });
+            if (newCatId) await Category.increment('productCount', { by: 1, where: { id: newCatId } });
+          }
+          if (product.changed('subCategoryId')) {
+            console.log("update subCategoryId trigger")
+            const oldSubCatId = product.previous('subCategoryId');
+            const newSubCatId = product.subCategoryId;
+            if (oldSubCatId) await SubCategory.decrement('productCount', { by: 1, where: { id: oldSubCatId } });
+            if (newSubCatId) await SubCategory.increment('productCount', { by: 1, where: { id: newSubCatId } });
+          }
+          if (product.changed('websiteId')) {
+            console.log("update websiteId trigger")
+            const oldWebsiteIds = product.previous('websiteId') || [];
+            const newWebsiteIds = product.websiteId || [];
+            const websitesToRemove = oldWebsiteIds.filter(id => !newWebsiteIds.includes(id));
+            const websitesToAdd = newWebsiteIds.filter(id => !oldWebsiteIds.includes(id));
+
+            if (websitesToRemove.length > 0) {
+              await Website.decrement('productCount', { by: 1, where: { id: { [Op.in]: websitesToRemove } } });
+            }
+            if (websitesToAdd.length > 0) {
+              await Website.increment('productCount', { by: 1, where: { id: { [Op.in]: websitesToAdd } } });
+            }
+          }
+        } catch (error) {
+          console.error('Error in afterUpdate hook:', error);
+          throw error;
+        }
+      },
+      beforeDestroy: async (product) => {
+        try {
+          const updates = [];
+          if (product.catalogId) {
+            updates.push(Catalog.decrement('productCount', { by: 1, where: { id: product.catalogId } }));
+          }
+          if (product.catId) {
+            updates.push(Category.decrement('productCount', { by: 1, where: { id: product.catId } }));
+          }
+          if (product.subCategoryId) {
+            updates.push(SubCategory.decrement('productCount', { by: 1, where: { id: product.subCategoryId } }));
+          }
+          if (product.websiteId?.length > 0) {
+            updates.push(Website.decrement('productCount', { by: 1, where: { id: { [Op.in]: product.websiteId } } }));
+          }
+          await Promise.all(updates);
+        } catch (error) {
+          console.error('Error in beforeDestroy hook:', error);
+          throw error;
         }
       }
     }
 });
 
 // Define associations
-Product.belongsTo(Catalog, {foreignKey: 'catalogId', as: 'catalog', onDelete: 'SET NULL'});
-Catalog.hasMany(Product, {foreignKey: 'catalogId', onDelete: 'SET NULL'});
+Product.belongsTo(Catalog, { foreignKey: 'catalogId', as: 'catalog', onDelete: 'SET NULL' });
+Catalog.hasMany(Product, { foreignKey: 'catalogId', onDelete: 'SET NULL' });
 
-Product.belongsTo(Category, {foreignKey: 'catId', as: 'category', onDelete: 'SET NULL'});
-Category.hasMany(Product, {foreignKey: 'catId', onDelete: 'SET NULL'});
+Product.belongsTo(Category, { foreignKey: 'catId', as: 'category', onDelete: 'SET NULL' });
+Category.hasMany(Product, { foreignKey: 'catId', onDelete: 'SET NULL' });
 
-Product.belongsTo(SubCategory, {foreignKey: 'subCatId', as: 'subCategory', onDelete: 'SET NULL'});
-SubCategory.hasMany(Product, {foreignKey: 'subCatId', onDelete: 'SET NULL'});
+Product.belongsTo(SubCategory, { foreignKey: 'subCategoryId', as: 'subCategory', onDelete: 'SET NULL' });
+SubCategory.hasMany(Product, { foreignKey: 'subCategoryId', onDelete: 'SET NULL' });
 
-Product.belongsTo(Website, {foreignKey: 'websiteId', as: 'website',  onDelete: 'SET NULL'});
-Website.hasMany(Product, {foreignKey: 'websiteId', onDelete: 'SET NULL'});
+// Note: belongsTo doesn't work with arrays, so we'll skip the direct association for websiteId
+// Instead, you can query Websites manually using the websiteId array if needed
 
-Product.belongsTo(User, {foreignKey: 'userId', as: 'user'});
-User.hasMany(Product, {foreignKey: 'userId'});
+Product.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(Product, { foreignKey: 'userId' });
 
-module.exports = {Product, PRODUCT_STATUS}
-
-  
+module.exports = { Product, PRODUCT_STATUS, TAGS };

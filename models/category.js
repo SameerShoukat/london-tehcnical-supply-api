@@ -23,6 +23,17 @@ const Category = sequelize.define('Category', {
   name: {
     type: DataTypes.STRING,
   },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    validate: {
+      len: [0, 10000]
+    }
+  },
+  productCount: {
+    type: DataTypes.INTEGER,
+    defaultValue : 0
+  },
   slug: {
     type: DataTypes.STRING,
     unique: {
@@ -71,9 +82,8 @@ const Category = sequelize.define('Category', {
 }
 );
 
-
 Category.belongsTo(Catalog, {foreignKey: 'catalogId', as: 'catalog'});
-Catalog.hasMany(Category, {foreignKey: 'catalogId', onDelete: 'CASCADE', onUpdate: 'CASCADE'});
+Catalog.hasMany(Category, {foreignKey: 'catalogId', as: 'sub_categories', onDelete: 'CASCADE', onUpdate: 'CASCADE'});
 
 
 Category.belongsTo(User, { foreignKey: 'userId', as: 'user'});

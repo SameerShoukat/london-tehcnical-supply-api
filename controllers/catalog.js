@@ -140,11 +140,32 @@ const catalogDropdown = async (req, res, next) => {
 }
 
 
+const catalogList = async (req, res, next) => {
+  try {
+
+    const { offset = 0, pageSize = 10 } = req.query;
+
+    // Get the paginated rows
+    const rows = await Catalog.findAll({
+      attributes: [['name', 'label'], ['id', 'value'], ['slug', 'slug'], ['images', 'images'], ['productCount', 'count']],
+      order: [['name', 'DESC']],
+      limit: parseInt(pageSize, 10),
+      offset,
+    });
+
+    return res.status(200).json(message(true, 'Catalog retrieved successfully', rows));
+  } catch (error) {
+    next(error);
+  }
+}
+
+
 module.exports = {
     create,
     getAll,
     updateOne,
     getOne,
     deleteOne,
-    catalogDropdown
+    catalogDropdown,
+    catalogList
 };

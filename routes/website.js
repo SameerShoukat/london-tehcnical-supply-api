@@ -67,7 +67,7 @@ router.get('/', authorize('setting', 'view'), getAll);
  * '/api/website/dropdown':
  *  get:
  *     tags:
- *     - Category
+ *     - Website
  *     summary: Get website dropdown
  *     security:
  *     - Bearer: []  # Reference to the security scheme

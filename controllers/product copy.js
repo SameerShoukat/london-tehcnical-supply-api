@@ -178,6 +178,7 @@ const getAll = async (req, res, next) => {
   }
 };
 
+
 const getOne = async (req, res, next) => {
   try {
     console.log(req.params.id)
@@ -374,38 +375,23 @@ const productDropdown = async (req, res, next) => {
   }
 };
 
+
 const assignTag = async (req, res, next) => {
   try {
-    const { tag: newTags, productId } = req.body;
 
-    const product = await Product.findByPk(productId);
-    if (!product) throw boom.notFound("Product not found");
+    const product = await findProduct(req.params.id);
+    const tag = req?.query?.tag;
 
-    // Ensure newTags is an array
-    const tagsToAdd = Array.isArray(newTags) ? newTags : [newTags];
-    if (tagsToAdd.length === 0) {
-      throw boom.badRequest("No tags provided");
+    if (!tag || !Object.values(TAGS).includes(req.query.tag)) {
+      throw boom.badRequest(`Invalid status. Must be one of: ${Object.values(PRODUCT_STATUS).join(', ')}`);
+    }
+    
+    if (!product.tags.includes(tag)) {
+      product.tags.push(tag);
     }
 
-    // Validate each tag
-    const invalidTags = tagsToAdd.filter(tag => !Object.values(TAGS).includes(tag));
-    if (invalidTags.length > 0) {
-      throw boom.badRequest(`Invalid tags: ${invalidTags.join(', ')}. Valid tags are: ${Object.values(TAGS).join(', ')}`);
-    }
-
-    // Get current tags and filter out duplicates
-    const currentTags = product.tags || [];
-    const uniqueNewTags = tagsToAdd.filter(tag => !currentTags.includes(tag));
-
-    if (uniqueNewTags.length === 0) {
-      throw boom.conflict("All tags already exist on the product");
-    }
-
-    // Merge and update
-    const updatedTags = [...currentTags, ...uniqueNewTags];
-    await product.update({ tags: updatedTags });
-
-    return res.status(200).json(message(true, 'Product tags added successfully', product));
+    await product.save();
+    return res.status(200).json(message(true, 'Product tags added successfully'));
   } catch (error) {
     next(error);
   }
@@ -413,45 +399,23 @@ const assignTag = async (req, res, next) => {
 
 const removeTag = async (req, res, next) => {
   try {
-    const { tag: tagsToRemove, productId } = req.body; 
-
-    const product = await Product.findByPk(productId);
-    if (!product) throw boom.notFound("Product not found");
-
-    // Validate tags format
-    const tags = Array.isArray(tagsToRemove) 
-      ? tagsToRemove 
-      : [tagsToRemove].filter(Boolean);
-      
-    if (tags.length === 0) {
-      throw boom.badRequest("No tags provided");
-    }
-
-    // Validate tag values
-    const invalidTags = tags.filter(tag => !Object.values(TAGS).includes(tag));
-    if (invalidTags.length > 0) {
-      throw boom.badRequest(
-        `Invalid tags: ${invalidTags.join(', ')}. Valid tags: ${Object.values(TAGS).join(', ')}`
-      );
-    }
-
-    // Check existing tags
-    const currentTags = product.tags || [];
+    const product = await findProduct(req.params.id);
+    const tag = req?.query?.tag;
     
-    const missingTags = tags.filter(tag => !currentTags.includes(tag));
-    if (missingTags.length > 0) {
-      throw boom.conflict(`Tags not found: ${missingTags.join(', ')}`);
+    if (!tag || !Object.values(TAGS).includes(req.query.tag)) {
+      throw boom.badRequest(`Invalid status. Must be one of: ${Object.values(PRODUCT_STATUS).join(', ')}`);
     }
 
-    // Remove tags
-    const updatedTags = currentTags.filter(t => !tags.includes(t));
-    await product.update({ tags: updatedTags });
-
-    return res.status(200).json(message(true, 'Tags removed successfully', product));
+    if (product.tags.includes(tag)) {
+      product.tags = product.tags.filter(tag => tag !== tag);
+    }
+    await product.save();
+    return res.status(200).json(message(true, 'Product tags removed successfully'));
   } catch (error) {
     next(error);
   }
 };
+
 
 const attributeList = async (req, res, next) =>{
   try{
@@ -494,17 +458,21 @@ const attributeList = async (req, res, next) =>{
   }
 }
 
+
 const productList = async (req, res, next) => {
   try {
-    const { websiteId, offset = 0, pageSize = 20 } = req.query;
-    const { 
-      catalog,
-      categories, 
-      subcategories, 
-      brands, 
-      vehicle_type, 
-    } = req.body;
-
+    const {
+      catalogId,
+      categoryId,
+      subCategoryId,
+      websiteId,
+      attributes, // Can be a JSON string or an object, e.g., { brand: 'Mercedes' }
+      page = 1,
+      offset = 0,
+      pageSize = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+    } = req.query;
 
     // Get user IP and determine country
     const userIP = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
@@ -518,109 +486,132 @@ const productList = async (req, res, next) => {
     };
     const currency = currencyMap[country] || 'USD'; // Default to USD
 
-    const filterConditions = [];
-
-    // Categories filter
-    if (categories?.length > 0) {
-      const categoryIds = await Category.findAll({
-        where: { slug: { [Op.in]: categories } },
-        attributes: ["id"],
-      }).then(cats => cats.map(cat => cat.id));
-      filterConditions.push({ catId: { [Op.in]: categoryIds } });
-    }
-
-    // Subcategories filter
-    if (subcategories?.length > 0) {
-      const subCategoryIds = await SubCategory.findAll({
-        where: { slug: { [Op.in]: subcategories } },
-        attributes: ["id"],
-      }).then(subs => subs.map(sub => sub.id));
-      filterConditions.push({ subCategoryId: { [Op.in]: subCategoryIds } });
-    }
+    // Build base where clause for the Product model
+    const baseWhere = _.pickBy({ catalogId, categoryId, subCategoryId }, _.identity);
     
-    // Catalog filter (catalog is a string, not an array)
-    if (catalog) {
-      const catalogData = await Catalog.findOne({
-        where: { slug: catalog },
-        attributes: ["id"],
-      });
-      if (catalogData) {
-        filterConditions.push({ catalogId: catalogData.id });
-      }
-    }
-
-    // Prepare attribute filtering
-    let attributeIds = [];
-    let attributeValues = [];
-    let brandAttribute, vehicleTypeAttribute;
-
-    if (brands?.length > 0) {
-      brandAttribute = await Attribute.findOne({
-        where: { slug: "brand" },
-        attributes: ["id"],
-      });
-      if (brandAttribute) {
-        attributeIds.push(brandAttribute.id);
-        // Assuming brands is an array of brand values
-        attributeValues = attributeValues.concat(brands);
-      }
-    }
-
-    if (vehicle_type?.length > 0) {
-      vehicleTypeAttribute = await Attribute.findOne({
-        where: { slug: "vehicle_type" },
-        attributes: ["id"],
-      });
-      if (vehicleTypeAttribute) {
-        attributeIds.push(vehicleTypeAttribute.id);
-        // Assuming vehicle_type is an array of vehicle type values
-        attributeValues = attributeValues.concat(vehicle_type);
-      }
-    }
-
-    if (attributeIds.length > 0 && attributeValues.length > 0) {
-      const productIdsByAttributes = await ProductAttribute.findAll({
-        where: {
-          value: { [Op.in]: attributeValues },
-          attributeId: { [Op.in]: attributeIds },
-        },
-        attributes: ["productId"],
-      }).then(attrs => attrs.map(attr => attr.productId));
-      
-      // If there are matching product IDs, add them as a filter condition
-      if (productIdsByAttributes.length > 0) {
-        filterConditions.push({ id: { [Op.in]: productIdsByAttributes } });
-      }
-    }
-
-    // Website filter: wrap websiteId in an array if it's a string.
+    // Handle websiteId as an array
+    const where = { ...baseWhere };
     if (websiteId) {
-      filterConditions.push({ websiteId: { [Op.overlap]: [websiteId] } });
+      let websiteIds = [];
+      if (typeof websiteId === 'string' && websiteId.includes(',')) {
+        websiteIds = websiteId.split(',').map(id => id.trim());
+      } else if (Array.isArray(websiteId)) {
+        websiteIds = websiteId;
+      } else {
+        websiteIds = [websiteId];
+      }
+      // Use the overlap operator to match any websiteId in the array
+      where.websiteId = { [Op.overlap]: websiteIds };
     }
 
-    // Fetch products matching all conditions with pagination
-    const products = await Product.findAll({
-      attributes: ['id', 'sku', 'name', 'slug', 'images', 'status', 'tags', 'inStock', 'description'],
-      where: { [Op.and]: filterConditions },
-      offset: parseInt(offset),
-      limit: parseInt(pageSize),
+    // Validate and normalize sort parameters
+    const validSortColumns = ['createdAt', 'name'];
+    const validSortOrders = ['ASC', 'DESC'];
+    const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'createdAt';
+    const sortDir = validSortOrders.includes(sortOrder.toUpperCase())
+      ? sortOrder.toUpperCase()
+      : 'DESC';
+    const order = [[sortColumn, sortDir]];
+
+    // Process attribute filtering:
+    // If 'attributes' is already an object, use it directly.
+    let attributeFilter = {};
+    if (attributes) {
+      if (typeof attributes === 'object') {
+        attributeFilter = attributes;
+      } else {
+        try {
+          attributeFilter = JSON.parse(attributes);
+        } catch (error) {
+          return res.status(400).json({ message: 'Invalid attributes format' });
+        }
+      }
+    }
+
+    let productIds = [];
+    if (Object.keys(attributeFilter).length > 0) {
+      // attributeFilter is in the form { brand: 'Mercedes', ... }
+      const attributeNames = Object.keys(attributeFilter);
+
+      // Retrieve the corresponding Attribute records (assuming Attribute model stores the attribute names)
+      const attributeRecords = await Attribute.findAll({
+        where: { name: attributeNames },
+      });
+
+      // If some attribute names are not found, then no product can match the filter.
+      if (attributeRecords.length !== attributeNames.length) {
+        return res.status(200).json(message(true, 'Products retrieved successfully', [], 0));
+      }
+
+      // Build conditions for filtering in ProductAttribute.
+      // For each attribute record, filter on its ID and the expected value.
+      const conditions = attributeRecords.map(attr => ({
+        attributeId: attr.id,
+        value: attributeFilter[attr.name],
+      }));
+
+      // Query ProductAttribute to find products matching any of the conditions,
+      // and then group by productId and use HAVING to ensure all conditions are met.
+      const productAttributes = await ProductAttribute.findAll({
+        attributes: ['productId'],
+        where: {
+          [Op.or]: conditions,
+        },
+        group: ['productId'],
+        having: sequelize.literal(`COUNT(DISTINCT "attributeId") = ${conditions.length}`),
+      });
+      
+      productIds = productAttributes.map(pa => pa.productId);
+
+      // If no matching products, return an empty result early.
+      if (productIds.length === 0) {
+        return res.status(200).json(message(true, 'Products retrieved successfully', [], 0));
+      }
+
+      // Add the found product IDs to the main query.
+      where.id = { [Op.in]: productIds };
+    }
+
+    // Retrieve products with pagination, sorting, and include pricing for the user's currency
+    const { count, rows } = await Product.findAndCountAll({
+      where,
+      limit: parseInt(pageSize, 10),
+      offset: (parseInt(page, 10) - 1) * parseInt(pageSize, 10) + parseInt(offset, 10),
+      order,
       include: [
         {
           model: ProductPricing,
           as: 'productPricing',
-          attributes: ['currency', 'discountType', 'discountValue', 'basePrice', 'finalPrice'],
+          attributes: ['currency', 'discountType', 'discountValue', 'basePrice'],
           where: { currency },
-          required: true  // only include products with pricing for the specified currency
+          required: false // Allow products without pricing in the user's currency
         }
       ]
     });
 
-    return res.json(message(true, 'Product successfully retrieved', products));
+    // Format products with the correct price for the user's country
+    const formattedProducts = rows.map(product => {
+      // Convert to plain object
+      const plainProduct = product.toJSON();
+      
+      // Extract the first (and only) pricing if it exists
+      const pricing = plainProduct.productPricing && plainProduct.productPricing.length > 0 
+        ? plainProduct.productPricing[0] 
+        : null;
+      
+      // Return formatted product with pricing as an object, not an array
+      return {
+        ...plainProduct,
+        productPricing: pricing || null
+      };
+    });
+
+    return res.status(200).json(message(true, 'Products retrieved successfully', formattedProducts, formattedProducts.length));
   } catch (error) {
-    console.error(error);
     next(error);
   }
 };
+
 
 const getProductDetail = async (req, res, next) => {
   try {
@@ -643,75 +634,62 @@ const getProductDetail = async (req, res, next) => {
     // Fetch product with pricing and attributes
     const product = await Product.findByPk(productData.id, {
       attributes: [
-        "id",
-        "sku",
-        "name",
-        "slug",
-        "images",
-        "status",
-        "tags",
-        "inStock",
-        "description",
+        'id', 
+        'sku', 
+        'name', 
+        'slug', 
+        'images', 
+        'status', 
+        'tags', 
+        'inStock', 
+        'description'
       ],
       include: [
         {
           model: ProductPricing,
-          as: "productPricing",
-          attributes: [
-            "currency",
-            "discountType",
-            "discountValue",
-            "basePrice",
-            "finalPrice",
-          ],
+          as: 'productPricing',
+          attributes: ['currency', 'discountType', 'discountValue', 'basePrice', 'finalPrice'],
           where: { currency },
-          required: true,
+          required: true
         },
         {
           model: ProductAttribute,
-          as: "productAttributes",
-          attributes: ["value"],
-          include: [
-            {
-              model: Attribute,
-              as: "attribute",
-              attributes: ["name"],
-            },
-          ],
+          as: 'productAttributes',
+          attributes: ['value'],
+          include: [{
+            model: Attribute,
+            as: 'attribute',
+            attributes: ['name']
+          }]
         },
         {
           model: Category,
-          as: "category",
-          attributes: ["name", "slug"],
+          as: 'category',
+          attributes: ['name', 'slug']
         },
         {
           model: SubCategory,
-          as: "subCategory",
-          attributes: ["name", "slug"],
-        },
-      ],
+          as: 'subCategory',
+          attributes: ['name', 'slug']
+        }
+      ]
     });
 
     if (!product) {
       throw boom.notFound('Product not found');
     }
 
-    
-    // 🔥 Flatten product attributes
-    const formattedProduct = {
-      ...product.toJSON(), // Convert Sequelize instance to JSON
-      productAttributes: product.productAttributes.map(attr => ({
-      label: attr.attribute.name,
-      value: attr.value
-      })),
-    };
-
-
-    return res.json(message(true, 'Product details retrieved successfully', formattedProduct));
+    return res.json(message(true, 'Product details retrieved successfully', product));
   } catch (error) {
     next(error);
   }
 };
+
+
+
+
+
+
 
 
 module.exports = {
@@ -727,5 +705,4 @@ module.exports = {
   assignTag,
   removeTag,
   getProductDetail
-  
 };

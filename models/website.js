@@ -28,6 +28,17 @@ const Website = sequelize.define('Website', {
       notEmpty: true
     }
   },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    validate: {
+      len: [0, 10000]
+    }
+  },
+  productCount: {
+    type: DataTypes.INTEGER,
+    defaultValue : 0
+  },
   logo: {
     type: DataTypes.STRING,
     allowNull: true,

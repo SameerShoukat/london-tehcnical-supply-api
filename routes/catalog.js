@@ -7,7 +7,8 @@ const {
   updateOne,
   getOne,
   deleteOne,
-  catalogDropdown
+  catalogDropdown,
+  catalogList
 } = require('../controllers/catalog');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
@@ -16,7 +17,8 @@ const Joi = require('joi');
 
 // Validation schemas
 const catalogSchema = Joi.object({
-  name: Joi.string().required().min(3).max(100)
+  name: Joi.string().required().min(3).max(100),
+  description : Joi.string().allow(''),
 });
 
 /**
@@ -49,6 +51,9 @@ const catalogSchema = Joi.object({
  *                 name:
  *                   type: string
  *                   example: ABCD
+ *                 description:
+ *                   type: string
+ *                   example: This is description
  *                 slug:
  *                   type: string
  *                   example: ABCD
@@ -59,6 +64,7 @@ const catalogSchema = Joi.object({
  *         description: Not Found
  */
 router.get('/', authorize('stock', 'view'), getAll);
+
 /**
  * @openapi
  * '/api/catalog/dropdown':
@@ -91,6 +97,37 @@ router.get('/dropdown', authorize('stock', 'view'), catalogDropdown);
 
 /**
  * @openapi
+ * '/api/catalog/list':
+ *  get:
+ *     tags:
+ *     - Catalog
+ *     summary: Get catalog list for the site
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   label:
+ *                     type: string
+ *                     example: ABCD
+ *                   image:
+ *                     type: string
+ *                     example: [https://abcd.com, https://bgdgd.com]
+ *                   value:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *       404:
+ *         description: Not Found
+ */
+router.get('/list', catalogList);
+
+/**
+ * @openapi
  * '/api/catalog/{id}':
  *  get:
  *     tags:
@@ -117,6 +154,9 @@ router.get('/dropdown', authorize('stock', 'view'), catalogDropdown);
  *                 name:
  *                   type: string
  *                   example: ABCD
+ *                 description:
+ *                   type: string
+ *                   example: This is description
  *                 slug:
  *                   type: string
  *                   example: ABCD
@@ -146,7 +186,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *             properties:
  *               data:
  *                 type: string
- *                 example : {name: "ABCD"}
+ *                 example : {name: "ABCD", description : "this is description"}
  *               files:
  *                 type: array
  *                 items:
@@ -203,7 +243,7 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *             properties:
  *               data:
  *                 type: JSON
- *                 example : {name : ABCD}
+ *                 example : {name: "ABCD", description : "this is description"}
  *               files:
  *                 type: array
  *                 items:
@@ -235,6 +275,7 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *         description: Not Found
  */
 router.put('/:id', authorize("stock", "manage"), upload.array('files', 5),  validateRequest(catalogSchema, true), updateOne);
+
 /**
  * @openapi
  * '/api/catalog/{id}':

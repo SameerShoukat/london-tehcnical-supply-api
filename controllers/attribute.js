@@ -30,9 +30,6 @@ const create = async (req, res, next) => {
               throw boom.conflict('Attribute already exists with this name');
           }
       }
-
-
-      console.log(payload)
       const attribute = await Attribute.create(payload);
       return res.status(201).json(message(true, 'Attribute created successfully', attribute));
 
@@ -40,7 +37,6 @@ const create = async (req, res, next) => {
       next(error);
   }
 };
-
 // Get all attribute with optional filtering
 const getAll = async (req, res, next) => {
   try {
@@ -70,7 +66,6 @@ const getAll = async (req, res, next) => {
     next(error);
   }
 };
-
 
 // Get a single attribute by ID
 const getOne = async (req, res, next) => {
@@ -118,6 +113,7 @@ const deleteOne = async (req, res, next) => {
     try {
         const { id } = req.params;
         const attribute = await Attribute.findByPk(id);
+        if(['brand', 'vehicle_type'].includes(attribute.slug)) throw boom.badRequest("You cant delete this attribute")
 
         if (!attribute) {
             throw boom.notFound('Attribute not found');
@@ -142,6 +138,8 @@ const attributeDropdown = async (req, res, next) => {
     next(error);
   }
 }
+
+
 
 
 

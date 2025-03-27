@@ -7,7 +7,8 @@ const {
   updateOne,
   getOne,
   deleteOne,
-  categoryDropdown
+  categoryDropdown,
+  categoryList
 } = require('../controllers/category');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
@@ -17,8 +18,10 @@ const Joi = require('joi');
 // Validation schemas
 const categorySchema = Joi.object({
   name: Joi.string().required().min(3).max(100),
+  description : Joi.string().allow(''),
   catalogId : Joi.string().required()
 });
+
 
 /**
  * @openapi
@@ -26,7 +29,7 @@ const categorySchema = Joi.object({
  *  get:
  *     tags:
  *     - Category
- *     summary: Get all category
+ *     summary: Get all categories
  *     security:
  *     - Bearer: []  # Reference to the security scheme
  *     parameters:
@@ -35,30 +38,37 @@ const categorySchema = Joi.object({
  *         schema:
  *           type: string
  *         required: false
- *         description: Name of the page to filter category
+ *         description: Pagination parameter for category listing
  *     responses:
  *       200:
  *         description: Success
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
- *                 catalogId:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
- *                 name:
- *                   type: string
- *                   example: ABCD
- *                 slug:
- *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   catalogId:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   name:
+ *                     type: string
+ *                     example: "ABCD"
+ *                   description:
+ *                     type: string
+ *                     example: "This is a description"
+ *                   slug:
+ *                     type: string
+ *                     example: "abcd"
+ *                   images:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ["https://example.com/image.jpg"]
  *       404:
  *         description: Not Found
  */
@@ -103,6 +113,41 @@ router.get('/dropdown', authorize('stock', 'view'), categoryDropdown);
 
 /**
  * @openapi
+ * '/api/category/list':
+ *  get:
+ *     tags:
+ *     - Category
+ *     summary: Get category list for the website
+ *     parameters:
+ *       - in: query
+ *         name: catalogId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter categories by category
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   label:
+ *                     type: string
+ *                     example: ABCD
+ *                   value:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *       404:
+ *         description: Not Found
+ */
+router.get('/list', categoryList);
+
+/**
+ * @openapi
  * '/api/category/{id}':
  *  get:
  *     tags:
@@ -121,23 +166,30 @@ router.get('/dropdown', authorize('stock', 'view'), categoryDropdown);
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
- *                 category:
- *                   type: object
- *                   example: {name: "ABCD"}
- *                 name:
- *                   type: string
- *                   example: ABCD
- *                 slug:
- *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   catalogId:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   name:
+ *                     type: string
+ *                     example: "ABCD"
+ *                   description:
+ *                     type: string
+ *                     example: "This is a description"
+ *                   slug:
+ *                     type: string
+ *                     example: "abcd"
+ *                   images:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ["https://example.com/image.jpg"]
  *       404:
  *         description: Not Found
  */
@@ -161,7 +213,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *             properties:
  *               data:
  *                 type: string
- *                 example : {name: "ABCD", catalogId: "gdgdgdgdcbcbcb"}
+ *                 example : {name: "ABCD", catalogId: "gdgdgdgdcbcbcb", description: this is description}
  *               files:
  *                 type: array
  *                 items:
@@ -175,27 +227,35 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
- *                 catalogId:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
- *                 name:
- *                   type: string
- *                   example: ABCD
- *                 slug:
- *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   catalogId:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   name:
+ *                     type: string
+ *                     example: "ABCD"
+ *                   description:
+ *                     type: string
+ *                     example: "This is a description"
+ *                   slug:
+ *                     type: string
+ *                     example: "abcd"
+ *                   images:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ["https://example.com/image.jpg"]
  *       404:
  *         description: Not Found
  */
 router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validateRequest(categorySchema, true), create);
+
 /**
  * @openapi
  * '/api/category/{id}':
@@ -221,7 +281,7 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *             properties:
  *               data:
  *                 type: string
- *                 example : {name: "ABCD", catalogId: "gdgdgdgdcbcbcb"}
+ *                 example : {name: "ABCD", catalogId: "gdgdgdgdcbcbcb", description: This is description}
  *               files:
  *                 type: array
  *                 items:
@@ -235,27 +295,35 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
- *                 catalogId:
- *                   type: string
- *                   example: "gdgdgdgdcbcbcb"
- *                 name:
- *                   type: string
- *                   example: ABCD
- *                 slug:
- *                   type: string
- *                   example: ABCD
- *                 images:
- *                   type: array
- *                   example: ["https://example.com/image.jpg"]
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   catalogId:
+ *                     type: string
+ *                     example: "gdgdgdgdcbcbcb"
+ *                   name:
+ *                     type: string
+ *                     example: "ABCD"
+ *                   description:
+ *                     type: string
+ *                     example: "This is a description"
+ *                   slug:
+ *                     type: string
+ *                     example: "abcd"
+ *                   images:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ["https://example.com/image.jpg"]
  *       404:
  *         description: Not Found
  */
 router.put('/:id', authorize("stock", "manage"), upload.array('files', 5), updateOne);
+
 /**
  * @openapi
  * '/api/category/{id}':

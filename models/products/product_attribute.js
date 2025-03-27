@@ -2,6 +2,7 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/database');
 const {Product} = require('./index');
 const Attribute = require('./attributes');
+const { createSlug } = require("../../utils/hook");
 
 const ProductAttribute = sequelize.define('ProductAttribute', {
     id: {
@@ -30,13 +31,24 @@ const ProductAttribute = sequelize.define('ProductAttribute', {
       allowNull: false
     }
   }, {
+
     timestamps: true,
     tableName: 'product_attributes',
     indexes: [
       { fields: ['productId', 'value'] },
       { fields: ['attributeId', 'value'] },
       { unique: true, fields: ['productId', 'attributeId'] }  
-    ]
+    ],
+    hooks: {
+      beforeCreate(instance) {
+        instance.value = createSlug(instance.value);
+      },
+      beforeUpdate(instance) {
+        if (instance.value) {
+          instance.value = createSlug(instance.value);
+        }
+      },
+    },
 });
 
 
