@@ -50,9 +50,8 @@ app.use('/documentation', (req, res, next) => {
     'Content-Security-Policy': "default-src 'self' 'unsafe-inline'", // Relax CSP temporarily
   });
   next();
-});
-// Serve Swagger documentation
-app.use('/documentation', apiDocumentation);
+}, apiDocumentation);
+
 
 app.use('/api/user', require('./routes/users'));
 app.use('/api/role', require('./routes/roles'));
