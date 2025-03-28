@@ -39,9 +39,6 @@ if (process.env.NODE_ENV === 'development') {
 app.set('trust proxy', true);
 
 
-const swaggerUiAssetPath = require('swagger-ui-dist').getAbsoluteFSPath();
-app.use('/documentation', express.static(swaggerUiAssetPath));
-
 // Explicitly set headers to allow insecure connections
 app.use('/documentation', (req, res, next) => {
   res.set({
