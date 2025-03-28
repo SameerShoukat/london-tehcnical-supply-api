@@ -33,7 +33,7 @@ app.use('/api/user', require('./routes/users'));
 app.use('/api/role', require('./routes/roles'));
 app.use('/api/catalog', require('./routes/catalog'));
 app.use('/api/category', require('./routes/category'));
-app.use('/api/subCategory', require('./routes/subCategory'));
+app.use('/api/subCategory', require('./routes/subCategories'));
 app.use('/api/website', require('./routes/website'));
 app.use('/api/attribute', require('./routes/attributes'));
 app.use('/api/vendor', require('./routes/vendor'));
@@ -62,10 +62,10 @@ app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
     // Sync models
     
-    // await sequelize.sync({
-    //   alter: true
-    // })
-    // console.log('Models synchronized successfully');
+    await sequelize.sync({
+      alter: true
+    })
+    console.log('Models synchronized successfully');
 
     // Start the server
     const port = process.env.PORT || 5000;
