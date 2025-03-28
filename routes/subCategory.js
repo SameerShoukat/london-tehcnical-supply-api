@@ -8,10 +8,10 @@ const {
   getOne,
   deleteOne,
   subCategoryDropdown
-} = require('../controllers/subCategory');
-const upload = require('../utils/upload');
-const { authorize } = require('../middleware/auth');
-const validateRequest = require('../middleware/validation');
+} = require('../controllers/subCategories.js');
+const upload = require('../utils/upload.js');
+const { authorize } = require('../middleware/auth.js');
+const validateRequest = require('../middleware/validation.js');
 const Joi = require('joi');
 
 // Validation schemas

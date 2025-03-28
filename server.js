@@ -62,10 +62,10 @@ app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
     // Sync models
     
-    // await sequelize.sync({
-    //   alter: true
-    // })
-    // console.log('Models synchronized successfully');
+    await sequelize.sync({
+      alter: true
+    })
+    console.log('Models synchronized successfully');
 
     // Start the server
     const port = process.env.PORT || 5000;
