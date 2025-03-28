@@ -18,36 +18,14 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: '*',
+  origin: '*', // Allow all origins
   methods: 'GET,PUT,POST,DELETE',
   allowedHeaders: 'Content-Type,Authorization',
   exposedHeaders: 'Content-Range,X-Content-Range'
 }));
 
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: [
-        "'self'", 
-        "'unsafe-inline'", 
-        "cdn.jsdelivr.net",
-        "unpkg.com"
-      ],
-      scriptSrc: [
-        "'self'", 
-        "'unsafe-inline'", 
-        "cdn.jsdelivr.net",
-        "unpkg.com"
-      ],
-      imgSrc: [
-        "'self'", 
-        "data:", 
-        "validator.swagger.io",
-        "online.swagger.io"
-      ]
-    }
-  },
+  contentSecurityPolicy: false, // Disable CSP temporarily for testing
   crossOriginOpenerPolicy: false,
   crossOriginResourcePolicy: false
 }));
@@ -60,20 +38,20 @@ if (process.env.NODE_ENV === 'development') {
 
 app.set('trust proxy', true);
 
-// Routes
-// Serve Swagger assets
-const swaggerUiAssetPath = path.dirname(require.resolve('swagger-ui-dist/package.json'));
-app.use('/documentation/swagger-ui.css', (req, res) => {
-  res.sendFile(path.join(swaggerUiAssetPath, 'swagger-ui.css'));
-});
-app.use('/documentation/static', express.static(swaggerUiAssetPath));
 
+const swaggerUiAssetPath = require('swagger-ui-dist').getAbsoluteFSPath();
+app.use('/documentation', express.static(swaggerUiAssetPath));
+
+// Explicitly set headers to allow insecure connections
 app.use('/documentation', (req, res, next) => {
-  res.set('Cross-Origin-Opener-Policy', 'unsafe-none');
-  res.set('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.set({
+    'Cross-Origin-Opener-Policy': 'unsafe-none',
+    'Cross-Origin-Embedder-Policy': 'unsafe-none',
+    'Content-Security-Policy': "default-src 'self' 'unsafe-inline'", // Relax CSP temporarily
+  });
   next();
 });
-
+// Serve Swagger documentation
 app.use('/documentation', apiDocumentation);
 
 app.use('/api/user', require('./routes/users'));
