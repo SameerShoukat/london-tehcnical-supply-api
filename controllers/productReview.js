@@ -32,7 +32,6 @@ const createReview = async (req, res, next) => {
 // Get all reviews with optional filtering
 const getAllReviews = async (req, res, next) => {
   try {
-
     const { offset = 0, pageSize = 10, productId, status } = req.query;
     
     const whereClause = {};
@@ -56,6 +55,27 @@ const getAllReviews = async (req, res, next) => {
     });
   
     return res.status(200).json(message(true, 'Product reviews retrieved successfully', rows, count));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const reviewList = async (req, res, next) => {
+  try {
+    const reviews = await ProductReview.findAll({
+      where: { status: 'approved', productId: req.params.id },
+      include: [
+        {
+          model: Product,
+          as: 'product',
+          attributes: ['id', 'name']
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 20
+    });
+
+    return res.status(200).json(message(true, 'Latest reviews retrieved successfully', reviews));
   } catch (error) {
     next(error);
   }
@@ -181,5 +201,6 @@ module.exports = {
   updateOneReview,
   deleteOneReview,
   updateReviewStatus,
-  getProductRating
+  getProductRating,
+  reviewList
 };

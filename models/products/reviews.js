@@ -32,18 +32,11 @@ const ProductReview = sequelize.define('ProductReview', {
   },
   email: {
     type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      isEmail: true,
-      notEmpty: true
-    }
+    allowNull: true,
   },
   title: {
     type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      notEmpty: true
-    }
+    allowNull: true,
   },
   content: {
     type: DataTypes.TEXT,

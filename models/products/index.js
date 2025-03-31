@@ -113,9 +113,9 @@ const Product = sequelize.define('Product', {
     },
     
     websiteId: {
-      type: DataTypes.ARRAY(DataTypes.UUID), // Array of UUIDs
-      allowNull: true, // Allows null values
-      defaultValue: [], // Default to an empty array
+      type: DataTypes.ARRAY(DataTypes.UUID),
+      allowNull: true, 
+      defaultValue: [], 
       comment: 'Array of website IDs where product is published'
     },
     userId: {
@@ -134,7 +134,6 @@ const Product = sequelize.define('Product', {
       { fields: ['catalogId'] },
       { fields: ['catId'] },
       { fields: ['subCategoryId'] },
-      // Removed websiteId index since arrays aren't typically indexed this way
     ],
     hooks: {
       beforeCreate: (product) => {

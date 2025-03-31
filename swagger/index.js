@@ -30,12 +30,13 @@ const options = {
     components: {
       securitySchemes: {
         Bearer: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT'
-        }
+          type: 'apiKey',
+          name: 'Authorization',
+          in: 'header',
+          description: 'Enter the token with the Bearer: prefix, e.g. "Bearer abcde12345"',
+        },
       }
-    }
+    },
   },
   apis: ['./routes/users.js', './routes/catalog.js', './routes/category.js', './routes/subCategory.js', './routes/website.js', './routes/attributes.js', './routes/product.js', './routes/vendor.js', './routes/purchase.js', './routes/constant.js', './routes/order.js','./routes/order.js','./routes/productQuote.js', './routes/productReviews.js']
 }
