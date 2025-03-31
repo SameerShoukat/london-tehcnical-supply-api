@@ -481,6 +481,12 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                 items:
  *                   type: string
  *                 example: ["Electric", "suv"]
+ *               tag:
+ *                 type: string
+ *                 items:
+ *                   type: string
+ *                 example: "best_selling"
+ *                   
  *     responses:
  *       200:
  *         description: Success

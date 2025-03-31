@@ -503,6 +503,7 @@ const productList = async (req, res, next) => {
       subcategories, 
       brands, 
       vehicle_type, 
+      tag
     } = req.body;
 
 
@@ -593,9 +594,17 @@ const productList = async (req, res, next) => {
       }
     }
 
-    // Website filter: wrap websiteId in an array if it's a string.
+    
     if (websiteId) {
       filterConditions.push({ websiteId: { [Op.overlap]: [websiteId] } });
+    }
+
+    if (tag) {
+      filterConditions.push({
+      tags: {
+        [Op.contains]: [tag] 
+      }
+      });
     }
 
     // Fetch products matching all conditions with pagination

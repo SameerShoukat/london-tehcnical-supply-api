@@ -18,6 +18,7 @@ const PRODUCT_STATUS = {
 const TAGS = {
   ON_SALE: 'on_sale',
   BEST_SELLING: 'best_selling',
+  NEW_ARRIVAL : 'new_arrival',
   FEATURE: 'feature'
 };
 
