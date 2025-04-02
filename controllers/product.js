@@ -13,6 +13,7 @@ const User = require('../models/users');
 const ProductAttribute = require("../models/products/product_attribute")
 const ProductPricing = require("../models/products/pricing")
 const Attribute = require("../models/products/attributes")
+const ProductCodes = require("../models/products/codes")
 
 
 // Common error handler
@@ -619,7 +620,7 @@ const productList = async (req, res, next) => {
           as: 'productPricing',
           attributes: ['currency', 'discountType', 'discountValue', 'basePrice', 'finalPrice'],
           where: { currency },
-          required: true  // only include products with pricing for the specified currency
+          required: true  
         }
       ]
     });
@@ -635,9 +636,9 @@ const getProductDetail = async (req, res, next) => {
   try {
     const { slug } = req.params;
 
-    // Get user IP and determine country (similar to productList)
+    // Get user IP and determine country (placeholder implementation)
     const userIP = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const country = 'UK'; // Implement actual country detection
+    const country = 'UK'; // TODO: Implement actual country detection
     
     // Define price currency mapping based on country
     const currencyMap = {
@@ -647,10 +648,11 @@ const getProductDetail = async (req, res, next) => {
     };
     const currency = currencyMap[country] || 'USD';
 
-    const productData = await Product.findOne({where:{slug}})
+    const productList = {}
 
-    // Fetch product with pricing and attributes
-    const product = await Product.findByPk(productData.id, {
+    // Consolidate product retrieval into a single query
+    const product = await Product.findOne({
+      where: { slug },
       attributes: [
         "id",
         "sku",
@@ -661,6 +663,7 @@ const getProductDetail = async (req, res, next) => {
         "tags",
         "inStock",
         "description",
+        "productCode"  // Ensure consistency with ProductCodes if used later
       ],
       include: [
         {
@@ -705,22 +708,117 @@ const getProductDetail = async (req, res, next) => {
       throw boom.notFound('Product not found');
     }
 
-    
-    // 🔥 Flatten product attributes
+
+
+    if (product.productCode) {
+      const relatedProducts = await Product.findAll({
+        where: { productCode: product.productCode },
+        attributes: [
+          'id',
+          'sku',
+          'name',
+          'slug',
+          'images',
+          'status',
+          'tags',
+          'inStock',
+          'description',
+          'productCode'
+        ],
+        include: [
+          {
+            model: ProductPricing,
+            as: 'productPricing',
+            attributes: [
+              'currency',
+              'discountType',
+              'discountValue',
+              'basePrice',
+              'finalPrice'
+            ],
+            where: { currency },
+            required: true  
+          }
+        ]
+      });
+      if(relatedProducts?.length > 0) productList['relatedProducts'] = relatedProducts;
+    }
+
+    // Flatten product attributes for easier consumption
     const formattedProduct = {
-      ...product.toJSON(), // Convert Sequelize instance to JSON
+      ...product.toJSON(),
       productAttributes: product.productAttributes.map(attr => ({
-      label: attr.attribute.name,
-      value: attr.value
+        label: attr.attribute.name,
+        value: attr.value
       })),
     };
 
-
-    return res.json(message(true, 'Product details retrieved successfully', formattedProduct));
+    productList['formattedProduct'] = formattedProduct;
+    return res.json(message(true, 'Product details retrieved successfully', productList));
   } catch (error) {
     next(error);
   }
 };
+
+const searchProducts = async (req, res, next) => {
+  try {
+    const { name } = req.params;
+
+    // Get user IP and determine country (placeholder implementation)
+    const userIP = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const country = 'UK'; // TODO: Implement actual country detection
+    
+    // Define price currency mapping based on country
+    const currencyMap = {
+      UK: 'GBP',
+      US: 'USD',
+      UAE: 'AED'
+    };
+    const currency = currencyMap[country] || 'USD';
+
+    const { Op } = require('sequelize');
+
+    const relatedProducts = await Product.findAll({
+        where: {
+          name: {
+            [Op.iLike]: `%${name}%`  // Case-insensitive partial match
+          }
+        },
+        attributes: [
+          'id',
+          'sku',
+          'name',
+          'slug',
+          'images',
+          'status',
+          'tags',
+          'inStock',
+          'description',
+          'productCode'
+        ],
+        include: [
+          {
+            model: ProductPricing,
+            as: 'productPricing',
+            attributes: [
+              'currency',
+              'discountType',
+              'discountValue',
+              'basePrice',
+              'finalPrice'
+            ],
+            where: { currency },
+            required: true  
+          }
+        ]
+    });
+
+    return res.json(message(true, 'Product details retrieved successfully', relatedProducts));
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 
 module.exports = {
@@ -735,6 +833,7 @@ module.exports = {
   productList,
   assignTag,
   removeTag,
-  getProductDetail
+  getProductDetail,
+  searchProducts
   
 };

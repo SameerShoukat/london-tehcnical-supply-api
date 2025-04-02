@@ -12,7 +12,8 @@ const {
   productList,
   assignTag,
   removeTag,
-  getProductDetail
+  getProductDetail,
+  searchProducts
 } = require('../controllers/product');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
@@ -661,6 +662,123 @@ router.post('/list', productList);
  *         description: Product not found
  */
 router.get('/details/:slug', getProductDetail);
+
+/**
+ * @openapi
+ * '/api/product/search/{name}':
+ *  get:
+ *     tags:
+ *     - Product
+ *     summary: Get product search by name
+ *     parameters:
+ *     - name: name
+ *       in: path
+ *       required: true
+ *       description: name of the product
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Product details retrieved successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "gdgdgdgdcbcbcb"
+ *                     sku:
+ *                       type: string
+ *                       example: "PDX200"
+ *                     name:
+ *                       type: string
+ *                       example: "Power Drill X200"
+ *                     slug:
+ *                       type: string
+ *                       example: "power-drill-x200"
+ *                     images:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         example: "https://example.com/image.jpg"
+ *                     status:
+ *                       type: string
+ *                       example: "active"
+ *                     tags:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         example: "on_sale"
+ *                     inStock:
+ *                       type: integer
+ *                       example: 100
+ *                     description:
+ *                       type: string
+ *                       example: "Professional grade power drill with variable speed control"
+ *                     productPricing:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           currency:
+ *                             type: string
+ *                             example: "GBP"
+ *                           discountType:
+ *                             type: string
+ *                             example: "percentage"
+ *                           discountValue:
+ *                             type: number
+ *                             example: 10
+ *                           basePrice:
+ *                             type: number
+ *                             example: 299.99
+ *                           finalPrice:
+ *                             type: number
+ *                             example: 269.99
+ *                     productAttributes:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           value:
+ *                             type: string
+ *                             example: "18V"
+ *                           attribute:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                                 example: "Battery Voltage"
+ *                     category:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           example: "Tools"
+ *                         slug:
+ *                           type: string
+ *                           example: "tools"
+ *                     subcategory:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           example: "Power Tools"
+ *                         slug:
+ *                           type: string
+ *                           example: "power-tools"
+ *       404:
+ *         description: Product not found
+ */
+router.get('/search/:name', searchProducts);
 
 
 /**
