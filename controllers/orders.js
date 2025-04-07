@@ -19,6 +19,9 @@ const {ORDER_STATUS} = require("../constant/types")
     }
 
     const create = async (req, res, next) => {
+        console.log(req.body)
+        return;
+        
         const { items, paymentMethod = 'cod', email, ...bodyData } = req.body;
 
         // Validate required fields

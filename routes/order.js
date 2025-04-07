@@ -10,7 +10,8 @@ const {
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 const Joi = require('joi');
-const {  CURRENCY } = require('../constant/types'); // Assuming shared schemas
+
+// Updated Joi validation schema
 
 const orderItemSchema = Joi.object({
   productId: Joi.string().uuid().required()
@@ -26,54 +27,70 @@ const orderItemSchema = Joi.object({
 }).oxor('price', 'productId')
   .with('price', ['name', 'sku']);
 
-const addressValidationSchema = Joi.alternatives().try(
-  Joi.object({
-    addressId: Joi.string().uuid().required()
+  
+  const addressSnapshotSchema = Joi.object({
+    firstName: Joi.string().required().description('First name'),
+    lastName: Joi.string().required().description('Last name'),
+    addressLine1: Joi.string().required().description('Primary address line'),
+    addressLine2: Joi.string().optional().allow('').description('Secondary address line'),
+    city: Joi.string().required().description('City'),
+    state: Joi.string().required().description('State'),
+    postalCode: Joi.string().pattern(/^\d{5}(?:[-\s]\d{4})?$/).required()
+      .description('Postal code'),
+    phone: Joi.string().pattern(/^(?:\+?[1-9]|0)\d{1,14}$/).optional()
+      .description('Phone number')
+  });
+  
+  const addressValidationSchema = Joi.object({
+    addressId: Joi.string().uuid()
       .description('Existing address ID'),
-  }),
-  Joi.object({
-    addressSnapshot: Joi.object({
-      street: Joi.string().required(),
-      city: Joi.string().required(),
-      state: Joi.string().required(),
-      postalCode: Joi.string().pattern(/^\d{5}(?:[-\s]\d{4})?$/).required(),
-      country: Joi.string().length(2).uppercase().required(),
-      phone: Joi.string().pattern(/^\+?[1-9]\d{1,14}$/).optional()
-    }).required()
-  })
-).description('Either existing address ID or new address snapshot');
-
-const validationSchema = Joi.object({
-  items: Joi.array().items(orderItemSchema).min(1).required()
-    .description('Array of order items'),
-  paymentMethod: Joi.string().valid('cod', 'credit_card', 'paypal').default('cod')
-    .description('Payment method type'),
-  email: Joi.string().email().required()
-    .description('Customer email address'),
-  shippingAddress: addressValidationSchema.required()
-    .description('Shipping address information'),
-  billingAddress: addressValidationSchema.required()
-    .description('Billing address information'),
-  currency: Joi.allow(CURRENCY),
-  customerNotes: Joi.string().max(500).optional()
-    .description('Optional customer notes')
-}).custom((value, helpers) => {
-  // Custom validation for address types
-  const shippingType = value.shippingAddress.addressSnapshot?.type;
-  const billingType = value.billingAddress.addressSnapshot?.type;
+    addressSnapshot: addressSnapshotSchema
+      .description('New address snapshot')
+  }).oxor('addressId', 'addressSnapshot')
+    .description('Either existing address ID or new address snapshot');
   
-  if (shippingType && shippingType !== 'shipping') {
-    return helpers.error('any.invalid');
-  }
+  const validationSchema = Joi.object({
+    website: Joi.string().required()
+      .description('Website of the order'),
+    items: Joi.array().items(orderItemSchema).min(1).required()
+      .description('Array of order items'),
+    paymentMethod: Joi.string().valid('cod', 'credit_card', 'paypal').default('cod')
+      .description('Payment method type'),
+    email: Joi.string().email().required()
+      .description('Customer email address'),
+    shippingAddress: addressValidationSchema.required()
+      .description('Shipping address information'),
+    billingAddress: addressValidationSchema.required()
+      .description('Billing address information'),
+    subtotal: Joi.number().precision(2).required()
+      .description('Order subtotal'),
+    shippingCost: Joi.number().precision(2).required()
+      .description('Shipping cost'),
+    tax: Joi.number().precision(2).required()
+      .description('Tax amount'),
+    discount: Joi.number().precision(2).required()
+      .description('Discount applied'),
+    total: Joi.number().precision(2).required()
+      .description('Total order amount'),
+    customerNotes: Joi.string().max(500).allow(null).optional()
+      .description('Optional customer notes')
+  }).custom((value, helpers) => {
+    const shippingType = value.shippingAddress.addressSnapshot?.type;
+    const billingType = value.billingAddress.addressSnapshot?.type;
+    
+    if (shippingType && shippingType !== 'shipping') {
+      return helpers.error('any.invalid');
+    }
+    
+    if (billingType && billingType !== 'billing') {
+      return helpers.error('any.invalid');
+    }
+    
+    return value;
+  }).messages({
+    'any.invalid': 'Address snapshot type must match address type'
+  });
   
-  if (billingType && billingType !== 'billing') {
-    return helpers.error('any.invalid');
-  }
-  
-  return value;
-}).messages({
-  'any.invalid': 'Address snapshot type must match address type'
-});
 
 
 
@@ -226,8 +243,6 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *     tags:
  *     - Order
  *     summary: Create a new order
- *     security:
- *     - Bearer: []  # Reference to the security scheme
  *     requestBody:
  *       required: true
  *       content:
@@ -235,6 +250,9 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *           schema:
  *             type: object
  *             properties:
+ *               website:
+ *                 type: string
+ *                 example: "localhost"
  *               email:
  *                 type: string
  *                 format: email
@@ -248,13 +266,24 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                       format: uuid
  *                     quantity:
  *                       type: integer
+ *                     name:
+ *                       type: string
+ *                     sku:
+ *                       type: string
  *               shippingAddress:
  *                 type: object
+ *                 description: Shipping address information
  *                 properties:
  *                   addressSnapshot:
  *                     type: object
  *                     properties:
- *                       street:
+ *                       firstName:
+ *                         type: string
+ *                       lastName:
+ *                         type: string
+ *                       addressLine1:
+ *                         type: string
+ *                       addressLine2:
  *                         type: string
  *                       city:
  *                         type: string
@@ -270,11 +299,18 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                         type: string
  *               billingAddress:
  *                 type: object
+ *                 description: Billing address information
  *                 properties:
  *                   addressSnapshot:
  *                     type: object
  *                     properties:
- *                       street:
+ *                       firstName:
+ *                         type: string
+ *                       lastName:
+ *                         type: string
+ *                       addressLine1:
+ *                         type: string
+ *                       addressLine2:
  *                         type: string
  *                       city:
  *                         type: string
@@ -284,12 +320,29 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *                         type: string
  *                       country:
  *                         type: string
+ *                       phone:
+ *                         type: string
  *                       type:
  *                         type: string
- *               currency:
- *                 type: string
+ *               subtotal:
+ *                 type: number
+ *                 example: 80
+ *               shippingCost:
+ *                 type: number
+ *                 example: 5.99
+ *               tax:
+ *                 type: number
+ *                 example: 8
+ *               discount:
+ *                 type: number
+ *                 example: 0
+ *               total:
+ *                 type: number
+ *                 example: 93.99
  *               paymentMethod:
  *                 type: string
+ *                 enum: [cod, credit_card, paypal]
+ *                 default: cod
  *               customerNotes:
  *                 type: string
  *     responses:
@@ -308,7 +361,7 @@ router.get('/:id', authorize('stock', 'view'), getOne);
  *       400:
  *         description: Bad request
  */
-router.post('/', authorize('stock', 'manage'),  validateRequest(validationSchema), create);
+router.post('/', validateRequest(validationSchema), create);
 
 /**
  * @openapi
