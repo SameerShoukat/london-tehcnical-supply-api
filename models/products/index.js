@@ -250,8 +250,6 @@ Category.hasMany(Product, { foreignKey: 'catId', onDelete: 'SET NULL' });
 Product.belongsTo(SubCategory, { foreignKey: 'subCategoryId', as: 'subCategory', onDelete: 'SET NULL' });
 SubCategory.hasMany(Product, { foreignKey: 'subCategoryId', onDelete: 'SET NULL' });
 
-// Note: belongsTo doesn't work with arrays, so we'll skip the direct association for websiteId
-// Instead, you can query Websites manually using the websiteId array if needed
 
 Product.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(Product, { foreignKey: 'userId' });

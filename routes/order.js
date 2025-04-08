@@ -5,7 +5,8 @@ const {
     getOne,
     getAll,
     updateOne,
-    deleteOne
+    deleteOne,
+    getOneByOrderNumber
 } = require('../controllers/orders');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
@@ -91,10 +92,6 @@ const orderItemSchema = Joi.object({
     'any.invalid': 'Address snapshot type must match address type'
   });
   
-
-
-
-
 /**
  * @openapi
  * '/api/order':
@@ -167,7 +164,6 @@ const orderItemSchema = Joi.object({
  *       404:
  *         description: Not Found
  */
-
 router.get('/', authorize('stock', 'view'), getAll);
 
 /**
@@ -235,6 +231,70 @@ router.get('/', authorize('stock', 'view'), getAll);
  *         description: Not Found
  */
 router.get('/:id', authorize('stock', 'view'), getOne);
+
+/**
+ * @openapi
+ * '/api/order/one/{orderId}':
+ *  get:
+ *     tags:
+ *     - Order
+ *     summary: Get product
+ *     parameters:
+ *     - name: orderId
+ *       in: path
+ *       required: true
+ *       description: orderId of the product
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   format: uuid
+ *                 orderNumber:
+ *                   type: string
+ *                 accountId:
+ *                   type: string
+ *                   format: uuid
+ *                 website:
+ *                   type: string
+ *                 shippingAddressSnapshot:
+ *                   type: object
+ *                 billingAddressSnapshot:
+ *                   type: object
+ *                 currency:
+ *                   type: string
+ *                 subtotal:
+ *                   type: number
+ *                   format: decimal
+ *                 shippingCost:
+ *                   type: number
+ *                   format: decimal
+ *                 tax:
+ *                   type: number
+ *                   format: decimal
+ *                 discount:
+ *                   type: number
+ *                   format: decimal
+ *                 total:
+ *                   type: number
+ *                   format: decimal
+ *                 status:
+ *                   type: string
+ *                 paymentStatus:
+ *                   type: string
+ *                 metadata:
+ *                   type: object
+ *                 notes:
+ *                   type: string
+ *       404:
+ *         description: Not Found
+ */
+router.get('/one/:orderId', getOneByOrderNumber);
 
 /**
  * @openapi

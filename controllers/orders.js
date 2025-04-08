@@ -21,7 +21,7 @@ const ProductPricing = require("../models/products/pricing")
 
 const generateOrderNumber = async () => {
   const count = await Order.count();
-  return `LTC-O-${count}`;
+  return `LTC-O-${count + 1}`;
 };
 
 const create = async (req, res, next) => {
@@ -222,6 +222,36 @@ const create = async (req, res, next) => {
 const getOne = async (req, res, next) => {
   const orderId = req.params.id;
   const order = await Order.findByPk(orderId, {
+    include: [
+      {
+        model: Payment,
+        as: "payments",
+      },
+      {
+        model: Account,
+        as: "accountDetails",
+        attributes: ["id", "email"],
+      },
+      {
+        model: OrderHistory,
+        as: "orderHistory",
+        order: [["createdAt", "DESC"]],
+      },
+    ],
+  });
+  if (!order) {
+    throw boom.notFound("Order not found");
+  }
+  return res.status(200).json(
+    message(true, "Order created successfully", order)
+  );
+};
+
+// get one by slug
+const getOneByOrderNumber = async (req, res, next) => {
+  const orderId = req.params.orderId;
+  const order = await Order.findOne({
+    where :{orderNumber : orderId},
     include: [
       {
         model: Payment,
@@ -738,4 +768,5 @@ module.exports = {
   updateOne,
   updateStatus,
   deleteOne,
+  getOneByOrderNumber
 };
