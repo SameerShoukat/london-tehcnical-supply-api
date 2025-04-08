@@ -35,6 +35,10 @@ const Order = sequelize.define('Order', {
       type: DataTypes.JSONB,
       allowNull: false
   },
+  items: {
+    type: DataTypes.JSONB,
+    allowNull: false
+  },
   currency: {
     type: DataTypes.STRING,
     allowNull: false,

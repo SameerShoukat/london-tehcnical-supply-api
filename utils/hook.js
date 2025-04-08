@@ -18,4 +18,45 @@ const  message = (status, message, data, count, pagination) =>{
 }
 
 
-module.exports = {createSlug, message}
+const calculateFinalPrice = (pricing) => {
+    try {
+    if (pricing?.discountType && pricing?.discountValue) {
+        const base = parseFloat(pricing?.basePrice || 0);
+        const discount = parseFloat(pricing?.discountValue || 0);
+
+        const discountAmount = pricing.discountType === "percentage"
+            ? base * (discount / 100)
+            : discount;
+
+        const finalPrice = base - discountAmount;
+        return {
+            productPrice: finalPrice.toFixed(2),
+            productDiscount: discountAmount.toFixed(2)
+        };
+    }
+    const basePrice = Number(pricing.basePrice) || 0;
+    return {
+      productPrice: basePrice?.toFixed(2),
+      productDiscount: 0
+    };
+
+    } catch (error) {
+      console.error("Error calculating final price:", error);
+      return 0;
+    }
+};
+
+function generatePassword(length = 12) {
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    
+    for (let i = 0; i < length; i++) {
+      const randomIndex = Math.floor(Math.random() * charset.length);
+      password += charset[randomIndex];
+    }
+    
+    return password;
+  }
+
+
+module.exports = {createSlug, message, calculateFinalPrice, generatePassword}

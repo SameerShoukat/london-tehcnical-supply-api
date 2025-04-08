@@ -20,7 +20,7 @@ const Payment = sequelize.define('Payment', {
     },
     transactionId: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
       unique: true,
     },
     amount: {
@@ -69,7 +69,16 @@ const Payment = sequelize.define('Payment', {
     ]
 });
 
-Payment.belongsTo(Order, {foreignKey : 'orderId', as: 'payments', onDelete : 'CASCADE'})
-Order.hasMany(Payment, {foreignKey : 'orderId'})
+Payment.belongsTo(Order, { 
+  foreignKey: 'orderId', 
+  as: 'order', 
+  onDelete: 'CASCADE'
+});
+
+Order.hasMany(Payment, { 
+  foreignKey: 'orderId',
+  as: 'payments'
+});
+
 
 module.exports = Payment

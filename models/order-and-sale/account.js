@@ -17,7 +17,7 @@ const Account = sequelize.define('Account', {
     },
     password: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
     },
     isActive: {
         type: DataTypes.BOOLEAN,
