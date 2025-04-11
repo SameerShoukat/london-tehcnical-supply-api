@@ -150,6 +150,8 @@ const updateReviewStatus = async (req, res, next) => {
     const { id } = req.params;
     
     const { status } = req.body;
+
+    console.log(status)
     
     if (!['pending', 'approved', 'rejected'].includes(status)) {
       throw boom.badRequest('Invalid status value');

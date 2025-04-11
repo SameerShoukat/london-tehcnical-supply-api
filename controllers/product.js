@@ -4,7 +4,7 @@ const _ = require("lodash");
 const sequelize = require('../config/database');
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
-const {Product, PRODUCT_STATUS, TAGS} = require('../models/products/index');
+const {Product, PRODUCT_STATUS} = require('../models/products/index');
 const Catalog = require('../models/catalog');
 const Category = require('../models/category');
 const Website = require('../models/website');
@@ -389,10 +389,10 @@ const assignTag = async (req, res, next) => {
     }
 
     // Validate each tag
-    const invalidTags = tagsToAdd.filter(tag => !Object.values(TAGS).includes(tag));
-    if (invalidTags.length > 0) {
-      throw boom.badRequest(`Invalid tags: ${invalidTags.join(', ')}. Valid tags are: ${Object.values(TAGS).join(', ')}`);
-    }
+    // const invalidTags = tagsToAdd.filter(tag => !Object.values(TAGS).includes(tag));
+    // if (invalidTags.length > 0) {
+    //   throw boom.badRequest(`Invalid tags: ${invalidTags.join(', ')}. Valid tags are: ${Object.values(TAGS).join(', ')}`);
+    // }
 
     // Get current tags and filter out duplicates
     const currentTags = product.tags || [];
@@ -429,12 +429,12 @@ const removeTag = async (req, res, next) => {
     }
 
     // Validate tag values
-    const invalidTags = tags.filter(tag => !Object.values(TAGS).includes(tag));
-    if (invalidTags.length > 0) {
-      throw boom.badRequest(
-        `Invalid tags: ${invalidTags.join(', ')}. Valid tags: ${Object.values(TAGS).join(', ')}`
-      );
-    }
+    // const invalidTags = tags.filter(tag => !Object.values(TAGS).includes(tag));
+    // if (invalidTags.length > 0) {
+    //   throw boom.badRequest(
+    //     `Invalid tags: ${invalidTags.join(', ')}. Valid tags: ${Object.values(TAGS).join(', ')}`
+    //   );
+    // }
 
     // Check existing tags
     const currentTags = product.tags || [];

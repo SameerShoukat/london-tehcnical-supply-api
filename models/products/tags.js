@@ -14,18 +14,31 @@ const ProductTags = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    sku: {
+    slug: {
       type: DataTypes.STRING,
       unique: true,
       allowNull: false,
-    }
+    },
+    description: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    image: {
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
   },
   {
+    paranoid: true,
     timestamps: true,
     tableName: "product_tags",
-    indexes: [
-      { unique: true, fields: ["sku"] },
-    ],
+    indexes: [{ unique: true, fields: ["slug"] }],
     hooks: {
       beforeCreate(instance) {
         instance.value = createSlug(instance.value);
@@ -38,7 +51,5 @@ const ProductTags = sequelize.define(
     },
   }
 );
-
-
 
 module.exports = ProductTags;

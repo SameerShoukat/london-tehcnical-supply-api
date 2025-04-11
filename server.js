@@ -19,7 +19,7 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: '*', // Allow all origins
-  methods: 'GET,PUT,POST,DELETE',
+  methods: 'GET,PUT,POST,DELETE,PATCH',
   allowedHeaders: 'Content-Type,Authorization',
   exposedHeaders: 'Content-Range,X-Content-Range'
 }));
@@ -60,10 +60,12 @@ app.use('/api/attribute', require('./routes/attributes'));
 app.use('/api/vendor', require('./routes/vendor'));
 app.use('/api/purchase', require('./routes/purchase'));
 app.use('/api/product', require('./routes/product'));
+app.use('/api/productTags', require('./routes/productTag'));
 app.use('/api/constant', require('./routes/constant'));
 app.use('/api/order', require('./routes/order'));
 app.use('/api/quotes', require('./routes/productQuote'));
 app.use('/api/reviews', require('./routes/productReviews'));
+app.use('/api/gallery', require('./routes/gallery'));
 
 
 // Error handling middleware
