@@ -77,6 +77,7 @@ const getActiveGallery = async (req, res, next) => {
       const where = {status : true}
       if(type) where.type = type;
       const activeGallery = await Gallery.findAll({
+        attributes:['image'],
         where: where,
         order: [['createdAt', 'DESC']]
       });

@@ -30,7 +30,7 @@ const productTagValidationSchema = Joi.object({
  * '/api/productTags/list':
  *   get:
  *     tags:
- *       - Product
+ *       - ProductTags
  *     summary: Get active product tags
  *     responses:
  *       200:
@@ -395,5 +395,44 @@ router.post(
  *         description: Not Found
  */
 router.delete("/:id", authorize("stock", "delete"), deleteOneTag);
+
+/**
+ * @openapi
+ * '/api/productTags/{id}/status':
+ *   put:
+ *     tags:
+ *       - ProductTags
+ *     summary: Update product tag status
+ *     security:
+ *       - Bearer: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         description: ID of the product tag
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Status updated successfully
+ *       404:
+ *         description: Tag not found
+ */
+router.put(
+  "/:id/status",
+  authorize("stock", "manage"),
+  validateRequest(Joi.object({ status: Joi.boolean().required() })),
+  updateStatus
+);
 
 module.exports = router;

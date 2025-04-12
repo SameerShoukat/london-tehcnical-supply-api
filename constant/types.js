@@ -22,6 +22,7 @@ const ORDER_PAYMENT_STATUS = {
     UNPAID: 'unpaid',
     PAID: 'paid',
     PARTIALLY_PAID: 'partially_paid',
+    REFUNDED: 'refunded'
 };
 
 const CURRENCY = {

@@ -10,7 +10,7 @@ const {
 const sequelize = require("../config/database");
 const _ = require("lodash");
 const boom = require("@hapi/boom");
-const { ORDER_STATUS } = require("../constant/types");
+const { ORDER_STATUS, ORDER_PAYMENT_STATUS } = require("../constant/types");
 const {Product} = require('../models/products/index');
 const {
   calculateFinalPrice,
@@ -179,16 +179,19 @@ const create = async (req, res, next) => {
     );
 
     // Create payment record
-    await Payment.create(
-      {
-        orderId: order.id,
-        amount: total,
-        currency,
-        method: paymentMethod,
-        status: paymentMethod === "cod" ? "pending" : "unpaid",
-      },
-      { transaction }
-    );
+    if(paymentMethod !== 'cod'){
+      await Payment.create(
+        {
+          orderId: order.id,
+          amount: total,
+          currency,
+          method: paymentMethod,
+          status: paymentMethod === "cod" ? "pending" : "unpaid",
+        },
+        { transaction }
+      );
+    }
+   
 
     // Create order history
     await OrderHistory.create(
@@ -483,7 +486,9 @@ const updateOne = async (req, res, next) => {
     // Return updated order
     return await this.getOrderById(id, transaction);
   } catch (error) {
-    await transaction.rollback();
+    if (!transaction.finished) {
+      await transaction.rollback();
+    }
     throw error;
   }
 };
@@ -525,10 +530,59 @@ const updateStatus = async (req, res, next) => {
 
     await transaction.commit();
 
-    return this.getOrderById(orderId);
+    return res.status(200).json(message(true, "Order status updated successfully", order));
+
   } catch (error) {
-    await transaction.rollback();
-    throw error;
+    if (!transaction.finished) {
+      await transaction.rollback();
+    }
+    next(error);
+  }
+};
+
+const updatePaymentStatus = async (req, res, next) => {
+  const { orderId, status, reason = "" } = req.body;
+  const transaction = await sequelize.transaction();
+
+  try {
+    const order = await Order.findByPk(orderId, { transaction });
+    if (!order) throw boom.notFound("Order not found");
+
+    if (
+      ![ORDER_PAYMENT_STATUS.PAID, ORDER_PAYMENT_STATUS.REFUNDED].includes(order.paymentStatus) &&
+      status === "unpaid"
+    ) {
+      throw boom.badRequest("Order payment status can't be change to " + status);
+    }
+
+    // Update order status
+    order.paymentStatus = status;
+    await order.save({ transaction });
+
+    // Create history entry
+    await OrderHistory.create(
+      {
+        orderId: order.id,
+        status: status,
+        performedBy: req.user.id,
+        performerInfo: {
+          email: req?.user?.email,
+          role: req?.user?.role,
+        },
+        note: reason || "Order has been marked as " + status,
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
+
+    const updatedOrder = await Order.findByPk(orderId);
+    return res.status(200).json(message(true, "Payment status updated successfully", updatedOrder));
+  } catch (error) {
+    if (!transaction.finished) {
+      await transaction.rollback();
+    }
+    next(error);
   }
 };
 
@@ -768,5 +822,6 @@ module.exports = {
   updateOne,
   updateStatus,
   deleteOne,
-  getOneByOrderNumber
+  getOneByOrderNumber,
+  updatePaymentStatus
 };

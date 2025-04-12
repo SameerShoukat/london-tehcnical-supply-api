@@ -6,13 +6,40 @@ const {
     getAll,
     updateOne,
     deleteOne,
-    getOneByOrderNumber
+    getOneByOrderNumber,
+    updateStatus,
+    updatePaymentStatus
 } = require('../controllers/orders');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 const Joi = require('joi');
+const { ORDER_STATUS, ORDER_PAYMENT_STATUS } = require('../constant/types')
 
 // Updated Joi validation schema
+
+const updateStatusSchema = Joi.object({
+  orderId: Joi.string().uuid().required()
+    .description('UUID of the order to update'),
+  type: Joi.string().valid('order', 'payment').required()
+    .description('Type of status update'),
+  status: Joi.string().required()
+    .custom((value, helpers) => {
+      const type = helpers.state.ancestors[0].type;
+      if (type === 'order' && !Object.values(ORDER_STATUS).includes(value)) {
+        return helpers.error('any.invalid');
+      }
+      if (type === 'payment' && !Object.values(ORDER_PAYMENT_STATUS).includes(value)) {
+        return helpers.error('any.invalid');
+      }
+      return value;
+    })
+    .description('New status for the order'),
+  reason: Joi.string().max(500).optional()
+    .description('Reason for status change')
+}).messages({
+  'any.invalid': 'Invalid status for the specified type'
+});
+
 
 const orderItemSchema = Joi.object({
   productId: Joi.string().uuid().required()
@@ -545,8 +572,85 @@ router.put('/:id', authorize("stock", "manage"),  validateRequest(validationSche
  */
 router.delete('/:id', authorize("stock", "delete"), deleteOne);
 
+/**
+ * @openapi
+ * '/api/order/status':
+ *   patch:
+ *     tags:
+ *       - Order
+ *     security:
+ *       - Bearer: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *               - status
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: UUID of the order to update
+ *               status:
+ *                 type: string
+ *                 enum: [pending, confirmed, cancelled]
+ *                 description: New status for the order
+ *               reason:
+ *                 type: string
+ *                 maxLength: 500
+ *                 description: Optional reason for status change
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *       400:
+ *         description: Invalid request or status change not allowed
+ *       404:
+ *         description: Order not found
+ */
+router.patch('/status', authorize('orders', 'manage'), validateRequest(updateStatusSchema), updateStatus);
 
-
+/**
+ * @openapi
+ * '/api/order/paymentStatus':
+ *   patch:
+ *     tags:
+ *       - Order
+ *     security:
+ *       - Bearer: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *               - status
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: UUID of the order to update
+ *               status:
+ *                 type: string
+ *                 enum: [pending, confirmed, cancelled]
+ *                 description: New status for the order
+ *               reason:
+ *                 type: string
+ *                 maxLength: 500
+ *                 description: Optional reason for status change
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *       400:
+ *         description: Invalid request or status change not allowed
+ *       404:
+ *         description: Order not found
+ */
+router.patch('/paymentStatus', authorize('orders', 'manage'), validateRequest(updateStatusSchema), updatePaymentStatus);
 
 
 

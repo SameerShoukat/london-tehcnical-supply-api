@@ -9,10 +9,11 @@ const createTag = async (req, res, next) => {
     // If payload comes as a string, parse it; otherwise use it directly
     const payload = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
     payload['image'] = req?.file?.path || {};
+    
+    if(!payload?.image) throw boom.notFound("Image is required")
 
-    console.log(payload)
-    
-    
+
+        
     // Generate a slug from the name if not provided manually
     if (payload?.name) {
       payload.slug = createSlug(payload.name);
@@ -65,6 +66,8 @@ const getAllTags = async (req, res, next) => {
   }
 };
 
+
+
 // Get a single tag by ID
 const getOneTag = async (req, res, next) => {
   try {
@@ -105,12 +108,12 @@ const updateOneTag = async (req, res, next) => {
 // Delete a tag by ID (soft-delete)
 const deleteOneTag = async (req, res, next) => {
   try {
+
     const { id } = req.params;
     const tag = await ProductTags.findByPk(id);
     if (!tag) throw boom.notFound('Product tag not found');
 
-    await tag.destroy(); // This performs a soft delete if your model is set up with paranoid mode.
-    return res.status(200).json(message(true, 'Product tag deleted successfully'));
+    await tag.destroy();
   } catch (error) {
     next(error);
   }
@@ -121,7 +124,8 @@ const tagsDropdown = async (req, res, next) => {
   try {
     // Return only id and name for dropdown lists (aliasing fields as needed)
     const tags = await ProductTags.findAll({
-      attributes: [['name', 'label'], ['id', 'value']],
+      where :{status: true},
+      attributes: [['name', 'label'], ['slug', 'value']],
     });
     return res.status(200).json(message(true, 'Dropdown retrieved successfully', tags));
   } catch (error) {
@@ -132,10 +136,15 @@ const tagsDropdown = async (req, res, next) => {
 const getActiveTags = async (req, res, next) => {
     try {
       const activeTags = await ProductTags.findAll({
+        attributes : ['name', 'description', 'slug', 'image'],
         where: { status: true },
         order: [['createdAt', 'DESC']]
       });
-      return res.status(200).json(message(true, 'Activated tags retrieved successfully', activeTags));
+      
+      const featuresProduct = activeTags.find(val => val.slug === 'feature') || {};
+      const filteredTags = activeTags.filter(val => val.slug !== 'feature');
+
+      return res.status(200).json(message(true, 'Activated tags retrieved successfully', {tags : filteredTags, feature: featuresProduct}));
     } catch (error) {
       next(error);
     }
@@ -148,11 +157,12 @@ const getActiveTags = async (req, res, next) => {
 const updateStatus = async (req, res, next) => {
     try {
       // Parse payload (handle stringified JSON if necessary)
+      const {id} = req.params;
       const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const { tagId, status } = payload;
+      const { status } = payload;
 
       // Find the tag
-      const tag = await ProductTags.findByPk(tagId);
+      const tag = await ProductTags.findByPk(id);
       if (!tag) throw boom.notFound('Product tag not found');
 
       // Update the status
