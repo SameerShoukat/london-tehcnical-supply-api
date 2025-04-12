@@ -17,7 +17,7 @@ const Order = sequelize.define('Order', {
   },
   accountId: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
         references: {
           model: Account,
           key: 'id',
@@ -34,6 +34,10 @@ const Order = sequelize.define('Order', {
   billingAddressSnapshot: {
       type: DataTypes.JSONB,
       allowNull: false
+  },
+  items: {
+    type: DataTypes.JSONB,
+    allowNull: false
   },
   currency: {
     type: DataTypes.STRING,

@@ -8,7 +8,8 @@ const {
   updateOneReview,
   deleteOneReview,
   updateReviewStatus,
-  getProductRating
+  getProductRating,
+  reviewList
 } = require('../controllers/productReview');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
@@ -18,8 +19,8 @@ const Joi = require('joi');
 const reviewSchema = Joi.object({
   rating: Joi.number().min(1).max(5).required(),
   name: Joi.string().allow(''),
-  email: Joi.string().email().required(),
-  title: Joi.string().required(),
+  email: Joi.string().email().allow(''),
+  title: Joi.string().allow(''),
   content: Joi.string().required(),
   productId: Joi.string().guid({ version: 'uuidv4' }).required()
 });
@@ -84,6 +85,64 @@ router.get('/', authorize('stock', 'view'), getAllReviews);
 
 /**
  * @openapi
+ * '/api/reviews/list/{id}':
+ *  get:
+ *     tags:
+ *     - Reviews
+ *     summary: Get product reviews
+ *     parameters:
+ *     - name: id
+ *       in: path
+ *       schema:
+ *         type: string
+ *         format: uuid
+ *       required: true
+ *       description: Product ID to get reviews for
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     format: uuid
+ *                   rating:
+ *                     type: integer
+ *                     minimum: 1
+ *                     maximum: 5
+ *                   name:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                     format: email
+ *                   title:
+ *                     type: string
+ *                   content:
+ *                     type: string
+ *                   productId:
+ *                     type: string
+ *                     format: uuid
+ *                   status:
+ *                     type: string
+ *                     enum: [pending, approved, rejected]
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *                   updatedAt:
+ *                     type: string
+ *                     format: date-time
+ *       404:
+ *         description: Not Found
+ */
+router.get('/list/:id', reviewList);
+
+/**
+ * @openapi
  * '/api/reviews/{id}':
  *  get:
  *     tags:
@@ -144,8 +203,6 @@ router.get('/:id', authorize('stock', 'view'), getOneReview);
  *     tags:
  *       - Reviews
  *     summary: Create review
- *     security:
- *       - Bearer: []
  *     requestBody:
  *       required: true
  *       content:
@@ -218,7 +275,7 @@ router.get('/:id', authorize('stock', 'view'), getOneReview);
  *       404:
  *         description: Not Found
  */
-router.post('/', authorize('stock', 'manage'), validateRequest(reviewSchema), createReview);
+router.post('/',  validateRequest(reviewSchema), createReview);
 
 /**
  * @openapi

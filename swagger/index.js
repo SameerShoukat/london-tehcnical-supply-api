@@ -17,27 +17,28 @@ const options = {
         email: "your@email.com"
       }
     },
-    servers: [
-      {
-        url: "http://69.62.123.50:5000",
-        description: "Production server"
-      },
-      {
-        url: "http://localhost:5000",
-        description: "Local development server"
-      }
-    ],
+    // servers: [
+    //   {
+    //     url: "http://69.62.123.50:5000",
+    //     description: "Production server"
+    //   },
+    //   {
+    //     url: "http://localhost:5000",
+    //     description: "Local development server"
+    //   }
+    // ],
     components: {
       securitySchemes: {
         Bearer: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT'
-        }
+          type: 'apiKey',
+          name: 'Authorization',
+          in: 'header',
+          description: 'Enter the token with the Bearer: prefix, e.g. "Bearer abcde12345"',
+        },
       }
-    }
+    },
   },
-  apis: ['./routes/users.js', './routes/catalog.js', './routes/category.js', './routes/subCategory.js', './routes/website.js', './routes/attributes.js', './routes/product.js', './routes/vendor.js', './routes/purchase.js', './routes/constant.js', './routes/order.js','./routes/order.js','./routes/productQuote.js', './routes/productReviews.js']
+  apis: ['./routes/users.js', './routes/catalog.js', './routes/category.js', './routes/subCategory.js', './routes/website.js', './routes/attributes.js', './routes/product.js', './routes/productTag.js', './routes/gallery.js', './routes/vendor.js', './routes/purchase.js', './routes/constant.js', './routes/order.js','./routes/order.js','./routes/productQuote.js', './routes/productReviews.js']
 }
 
 const specs = swaggerJsdoc(options);

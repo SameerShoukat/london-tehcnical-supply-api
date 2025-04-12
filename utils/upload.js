@@ -2,18 +2,23 @@ const multer = require('multer');
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'uploads/');
+        cb(null, 'uploads');
     },
     filename: function (req, file, cb) {
-        // Generate unique filename using timestamp
-        cb(null, Date.now() + '-' + file.originalname);
+        // Generate unique filename and format path for web access
+        const filename = Date.now() + '-' + file.originalname;
+        cb(null, filename);
+        // Add virtual path to request object for later use
+        if (req.file) {
+            req.file.path = '/uploads/' + filename;
+        }
     }
 });
 
 // Configure file filter
 const fileFilter = (req, file, cb) => {
     // Accept only specific file types
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
     
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);

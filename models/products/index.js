@@ -18,6 +18,7 @@ const PRODUCT_STATUS = {
 const TAGS = {
   ON_SALE: 'on_sale',
   BEST_SELLING: 'best_selling',
+  NEW_ARRIVAL : 'new_arrival',
   FEATURE: 'feature'
 };
 
@@ -113,9 +114,9 @@ const Product = sequelize.define('Product', {
     },
     
     websiteId: {
-      type: DataTypes.ARRAY(DataTypes.UUID), // Array of UUIDs
-      allowNull: true, // Allows null values
-      defaultValue: [], // Default to an empty array
+      type: DataTypes.ARRAY(DataTypes.UUID),
+      allowNull: true, 
+      defaultValue: [], 
       comment: 'Array of website IDs where product is published'
     },
     userId: {
@@ -134,7 +135,6 @@ const Product = sequelize.define('Product', {
       { fields: ['catalogId'] },
       { fields: ['catId'] },
       { fields: ['subCategoryId'] },
-      // Removed websiteId index since arrays aren't typically indexed this way
     ],
     hooks: {
       beforeCreate: (product) => {
@@ -250,8 +250,6 @@ Category.hasMany(Product, { foreignKey: 'catId', onDelete: 'SET NULL' });
 Product.belongsTo(SubCategory, { foreignKey: 'subCategoryId', as: 'subCategory', onDelete: 'SET NULL' });
 SubCategory.hasMany(Product, { foreignKey: 'subCategoryId', onDelete: 'SET NULL' });
 
-// Note: belongsTo doesn't work with arrays, so we'll skip the direct association for websiteId
-// Instead, you can query Websites manually using the websiteId array if needed
 
 Product.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(Product, { foreignKey: 'userId' });

@@ -29,9 +29,13 @@ const Address = sequelize.define('Address', {
             isIn: [Object.values(ADDRESS_TYPE)]
         },
     },   
-    name: {
+    firstName: {
         type: DataTypes.STRING,
         allowNull: false
+    },
+    lastName: {
+      type: DataTypes.STRING,
+      allowNull: false
     },
     phoneNumber: {
         type: DataTypes.STRING,
