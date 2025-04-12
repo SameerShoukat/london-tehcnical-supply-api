@@ -17,16 +17,16 @@ const options = {
         email: "your@email.com"
       }
     },
-    servers: [
-      {
-        url: "http://69.62.123.50:5000",
-        description: "Production server"
-      },
-      {
-        url: "http://localhost:5000",
-        description: "Local development server"
-      }
-    ],
+    // servers: [
+    //   {
+    //     url: "http://69.62.123.50:5000",
+    //     description: "Production server"
+    //   },
+    //   {
+    //     url: "http://localhost:5000",
+    //     description: "Local development server"
+    //   }
+    // ],
     components: {
       securitySchemes: {
         Bearer: {
