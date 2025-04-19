@@ -14,11 +14,10 @@ const create = async (req, res, next) => {
       const payload =  typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
       payload['images'] = req?.files?.length > 0  ? req.files.map(file => file.path) : [];
       payload['userId'] = req.user.id;
-
-      // Check if the user exists (including soft-deleted ones)
+      
       const existingData = await Category.findOne({
           paranoid: false,
-          where: { slug: createSlug(payload.name) },
+          where: { slug: createSlug(payload.name), catalogId : payload.catalogId},
       });
 
       if (existingData) {

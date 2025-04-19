@@ -36,10 +36,7 @@ const SubCategory = sequelize.define('SubCategory', {
   },
   slug: {
     type: DataTypes.STRING,
-    unique: {
-      args: true,
-      msg : 'This name is already in use. Please choose a different one.'
-    }
+    unique:false
   },
   images: {
     type: DataTypes.ARRAY(DataTypes.STRING),
@@ -69,21 +66,41 @@ const SubCategory = sequelize.define('SubCategory', {
   paranoid: true, // Enables soft deletes
   timestamps: true, // Enables createdAt and updatedAt
   hooks: {
-    beforeCreate(instance) {
+    beforeCreate: async (instance) => {
       instance.slug = createSlug(instance.name);
-    },
-    beforeUpdate(instance) {
-      if (instance.name) {
-        instance.slug = createSlug(instance.name);
+      const existing = await SubCategory.findOne({
+        where: { 
+          slug: instance.slug,
+          catId: instance.catId 
+        }
+      });
+      if (existing) {
+        throw new Error('A category with this name already exists in this category');
       }
     },
-  },
+    beforeUpdate: async (instance) => {
+      if (instance.name) {
+        instance.slug = createSlug(instance.name);
+        const existing = await SubCategory.findOne({
+          where: { 
+            slug: instance.slug,
+            catId: instance.catId,
+            id: { [sequelize.Op.ne]: instance.id }
+          }
+        });
+        if (existing) {
+          throw new Error('A category with this name already exists in this category');
+        }
+      }
+    },
+  }
 });
 
 SubCategory.belongsTo(Category, { foreignKey: 'catId', as: 'category' });
 Category.hasMany(SubCategory, { foreignKey: 'catId',as:'sub_categories', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 
 SubCategory.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(SubCategory, { foreignKey: 'userId' });
+User.hasMany(SubCategory, { foreignKey: 'userId' })
+
 
 module.exports = SubCategory;

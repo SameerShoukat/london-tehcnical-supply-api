@@ -39,12 +39,11 @@ if (process.env.NODE_ENV === 'development') {
 app.set('trust proxy', true);
 
 
-// Explicitly set headers to allow insecure connections
 app.use('/documentation', (req, res, next) => {
   res.set({
     'Cross-Origin-Opener-Policy': 'unsafe-none',
     'Cross-Origin-Embedder-Policy': 'unsafe-none',
-    'Content-Security-Policy': "default-src 'self' 'unsafe-inline'", // Relax CSP temporarily
+    'Content-Security-Policy': "default-src 'self' 'unsafe-inline'",
   });
   next();
 }, apiDocumentation);
@@ -66,6 +65,9 @@ app.use('/api/order', require('./routes/order'));
 app.use('/api/quotes', require('./routes/productQuote'));
 app.use('/api/reviews', require('./routes/productReviews'));
 app.use('/api/gallery', require('./routes/gallery'));
+app.use('/api/gallery', require('./routes/gallery'));
+app.use('/api/coupon-codes', require('./routes/couponCodes'));
+app.use('/api/shipment-charges', require('./routes/shipmentCharges'));
 
 
 // Error handling middleware
@@ -81,6 +83,13 @@ app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
   try {
     await sequelize.authenticate();
     console.log('Database connected successfully');
+
+    // if you want to run any query
+    // await sequelize.query(
+    //     `ALTER TABLE "shipment_charges" DROP CONSTRAINT IF EXISTS "shipment_charges_url_key";`
+    // );
+    // console.log('Dropped sku constraint');
+
 
 
     // Sync models

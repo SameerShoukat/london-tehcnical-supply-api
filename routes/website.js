@@ -17,7 +17,12 @@ const Joi = require('joi');
 // Validation schemas
 const websiteSchema = Joi.object({
   name: Joi.string().required().min(3).max(100),
-  url: Joi.string().uri().required()
+  url: Joi.string()
+    .required()
+    .pattern(/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/)
+    .messages({
+      'string.pattern.base': 'Invalid URL format. Example valid URLs: example-domain.com, my-site123.org'
+    })
 });
 
 /**

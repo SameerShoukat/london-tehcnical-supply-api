@@ -16,11 +16,7 @@ const Catalog = sequelize.define('Catalog', {
     allowNull: false
   },
   slug: {
-    type: DataTypes.STRING,
-    unique: {
-      args: true,
-      msg: 'This name is already in use. Please choose a different one.'
-    },
+    type: DataTypes.STRING
   },
   description: {
     type: DataTypes.TEXT,
