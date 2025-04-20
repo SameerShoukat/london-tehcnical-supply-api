@@ -98,6 +98,55 @@ const deleteOne = async (req, res, next) => {
     next(error);
   }
 };
+// Calculate shipment charge based on country and amount
+const calculateShipmentCharge = async (req, res, next) => {
+  try {
+    const { country, state, zipCode,  totalAmount } = req.body;
+    if (!country || !totalAmount) {
+      throw boom.badRequest('Country and total amount are required');
+    }
+    // Get user IP and determine country (placeholder implementation)
+    const userIP =
+      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const selectedCountry = "UK"; // TODO: Implement actual country detection
+
+    // Define price currency mapping based on country
+    const currencyMap = {
+      UK: "GBP",
+      US: "USD",
+      UAE: "AED",
+    };
+    const currency = currencyMap[selectedCountry] || "GBP";
+
+    // Find applicable shipment charge
+    const charge = await ShipmentCharge.findOne({
+      where: { currency }
+    });
+
+    if (!charge) {
+      throw boom.notFound('No shipment charge found for this region');
+    }
+
+    // Calculate final shipping amount
+    const totalAmountToCalculate = Number(totalAmount);
+    let shippingAmount;
+    if (charge.isFixed) {
+      shippingAmount = charge.amount;
+    } else {
+      shippingAmount = (totalAmountToCalculate * charge.amount) / 100;
+    }
+
+    return res.status(200).json(message(true, 'Shipment charge calculated', {
+      shippingAmount,
+      currency,
+      amount : charge.amount,
+      calculationType: charge.isFixed ? 'fixed' : 'percentage'
+    }));
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 module.exports = {
   create,
@@ -105,6 +154,7 @@ module.exports = {
   getOne,
   updateOne,
   deleteOne,
+  calculateShipmentCharge
 };
 
 

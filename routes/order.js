@@ -61,6 +61,7 @@ const orderItemSchema = Joi.object({
     lastName: Joi.string().required().description('Last name'),
     addressLine1: Joi.string().required().description('Primary address line'),
     addressLine2: Joi.string().optional().allow('').description('Secondary address line'),
+    country: Joi.string().required().description('Country'),
     city: Joi.string().required().description('City'),
     state: Joi.string().required().description('State'),
     postalCode: Joi.string().pattern(/^\d{5}(?:[-\s]\d{4})?$/).required()
@@ -78,6 +79,7 @@ const orderItemSchema = Joi.object({
     .description('Either existing address ID or new address snapshot');
   
   const validationSchema = Joi.object({
+    couponCode: Joi.string().optional().allow('', null),
     website: Joi.string().required()
       .description('Website of the order'),
     items: Joi.array().items(orderItemSchema).min(1).required()

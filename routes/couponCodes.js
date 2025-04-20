@@ -22,11 +22,12 @@ const couponSchema = Joi.object({
   amount: Joi.number().min(0).required(),
   websiteId: Joi.string().guid({ version: 'uuidv4' }).required()
 });
+
 const validateSchemaForValidation = Joi.object({
   code: Joi.string().required(),
-  currency: Joi.string().valid(...Object.values(CURRENCY)).required(),
-  websiteId: Joi.string().guid({ version: 'uuidv4' }).required()
+  totalAmount: Joi.number().required(),
 });
+
 
 /**
  * @openapi
@@ -168,8 +169,6 @@ router.delete('/:id', authorize('setting', 'delete'), deleteOne);
  *     tags:
  *       - CouponCode
  *     summary: Validate a coupon code
- *     security:
- *       - Bearer: []
  *     requestBody:
  *       required: true
  *       content:
@@ -179,21 +178,34 @@ router.delete('/:id', authorize('setting', 'delete'), deleteOne);
  *             properties:
  *               code:
  *                 type: string
- *               currency:
- *                 type: string
- *                 enum: [GBP, AED, USD]
- *               websiteId:
- *                 type: string
+ *               totalAmount:
+ *                 type: number
  *             required:
  *               - code
- *               - currency
- *               - websiteId
+ *               - totalAmount
  *     responses:
  *       200:
  *         description: Coupon is valid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 discountAmount:
+ *                   type: number
+ *                 type:
+ *                   type: string
+ *                   enum: [fixed, percentage]
+ *                 originalAmount:
+ *                   type: number
+ *                 currency:
+ *                   type: string
+ *       400:
+ *         description: Bad request
  *       404:
  *         description: Invalid coupon code
  */
-router.post('/validate', authorize('setting', 'view'), validateRequest(validateSchemaForValidation), validateCode);
+
+router.post('/validate', validateRequest(validateSchemaForValidation), validateCode);
 
 module.exports = router;

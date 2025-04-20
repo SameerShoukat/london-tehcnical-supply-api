@@ -98,13 +98,46 @@ const deleteOne = async (req, res, next) => {
 // Validate a coupon code
 const validateCode = async (req, res, next) => {
   try {
-    const { code, websiteId, currency } = req.body;
+    
+      const { code, websiteId, currency:bodyCurrency, totalAmount } = req.body;
+
+      if (!totalAmount) {
+          throw boom.badRequest('Country and total amount are required');
+      }
+      
+      // Get user IP and determine country (placeholder implementation)
+      const userIP =
+          req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+
+      const selectedCountry = "UK"; // TODO: Implement actual country detection
+
+      // Define price currency mapping based on country
+      const currencyMap = {
+        UK: "GBP",
+        US: "USD",
+        UAE: "AED",
+      };
+      
+      const currency = currencyMap[selectedCountry] || "GBP";
+
     const coupon = await CouponCode.findOne({
-      where: { code, websiteId, currency }
+      where: { code, currency }
     });
     if (!coupon) throw boom.notFound('Invalid coupon code');
 
-    return res.status(200).json(message(true, 'CouponCode valid', { amount: coupon.amount, currency: coupon.currency }));
+    let discountAmount;
+    if (coupon.type === 'percentage') {
+      discountAmount = (totalAmount * coupon.amount) / 100;
+    } else {
+      discountAmount = coupon.amount;
+    }
+
+    return res.status(200).json(message(true, 'CouponCode valid', { 
+      discountAmount,
+      type: coupon.type,
+      discountAmount: coupon.amount,
+      currency: coupon.currency 
+    }));
   } catch (error) {
     next(error);
   }

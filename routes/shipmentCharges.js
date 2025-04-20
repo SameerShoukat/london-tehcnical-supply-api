@@ -10,7 +10,8 @@ const {
   getAll,
   getOne,
   updateOne,
-  deleteOne
+  deleteOne,
+  calculateShipmentCharge
 } = require('../controllers/shipmentCharges');
 
 // Validation schema
@@ -20,6 +21,13 @@ const shipmentChargeSchema = Joi.object({
   amount: Joi.number().min(0).required(),
   websiteId: Joi.string().guid({ version: 'uuidv4' }).required()
 });
+
+const calculateShipmentChargeSchema = Joi.object({
+  country: Joi.string().required(),
+  city: Joi.string().optional(),
+  state: Joi.string().optional(),
+  totalAmount: Joi.number().positive().required()
+})
 
 /**
  * @openapi
@@ -174,4 +182,47 @@ router.put('/:id', authorize('setting', 'manage'), validateRequest(shipmentCharg
  */
 router.delete('/:id', authorize('setting', 'delete'), deleteOne);
 
+
+/**
+ * @openapi
+ * '/api/shipment-charges/calculate':
+ *   post:
+ *     tags:
+ *       - ShipmentCharge
+ *     summary: Calculate shipment charge based on country and amount
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               country:
+ *                 type: string
+ *                 description: Country code
+ *               zipCode:
+ *                 type: string
+ *                 description: zip code
+ *               state:
+ *                 type: string
+ *                 description: state
+ *               totalAmount:
+ *                 type: number
+ *                 description: Total order amount
+ *             required:
+ *               - country
+ *               - totalAmount
+ *     responses:
+ *       200:
+ *         description: Calculated shipment charge
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: No shipment charge found
+ */
+router.post(
+  '/calculate',
+  validateRequest(calculateShipmentChargeSchema),
+  calculateShipmentCharge
+);
 module.exports = router;

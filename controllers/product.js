@@ -959,6 +959,68 @@ const getProductDetail = async (req, res, next) => {
   }
 };
 
+const getProductInformation = async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+
+    // Get user IP and determine country (placeholder implementation)
+    const userIP =
+      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const country = "UK"; // TODO: Implement actual country detection
+
+    // Define price currency mapping based on country
+    const currencyMap = {
+      UK: "GBP",
+      US: "USD",
+      UAE: "AED",
+    };
+    const currency = currencyMap[country] || "USD";
+
+    const productList = {};
+
+    // Consolidate product retrieval into a single query
+    const product = await Product.findOne({
+      where: { slug },
+      attributes: [
+        "id",
+        "sku",
+        "name",
+        "slug",
+        "images",
+        "status",
+        "tags",
+        "inStock",
+        "description",
+        "productCode",
+      ],
+      include: [
+        {
+          model: ProductPricing,
+          as: "productPricing",
+          attributes: [
+            "currency",
+            "discountType",
+            "discountValue",
+            "basePrice",
+            "finalPrice",
+          ],
+          where: { currency },
+          required: true,
+        }
+      ],
+    });
+
+    if (!product) {
+      throw boom.notFound("Product not found");
+    }
+    return res.json(
+      message(true, "Product information retrieved successfully", product)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const searchProducts = async (req, res, next) => {
   try {
     const { name } = req.params;
@@ -1038,4 +1100,5 @@ module.exports = {
   getSoftDeleted,
   restoreProducts,
   copyProduct,
+  getProductInformation
 };
