@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require("../models/users");
 const Permission = require("../models/permission");
+const Permissions = require("../models/perrmisions");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
 const {generateRefreshToken, refreshAccessToken, revokeRefreshToken } = require("./refreshtoken")
@@ -133,7 +134,7 @@ const loginUser = async (req, res, next) => {
       include:[{
         model : Permission, 
         as : 'permission', 
-        attributes : ['setting', 'stocks', 'purchase', 'orders', 'finance']
+        attributes : ['setting', 'stocks', 'purchase', 'orders', 'finance','customer_interaction']
       }]
     });
     if(!user) throw boom.notFound('User not found');
@@ -251,28 +252,41 @@ const getOne = async (req, res, next) => {
 
         if (!user) throw boom.notFound('User not found');
 
-        return res.status(200).json(message(true, 'User retrieved successfully', filter(user)));
+        return res.status(200).json(message(true, 'User retrieved successfully', user));
     } catch (error) {
       next(error);
     }
 };
 
-// Update a role by ID
 const deleteOne = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
   try {
-      const { id } = req.params;
+    const { id } = req.params;
+    
+    const user = await getOneUser({ id });
+    console.log(user)
+    if (!user) throw boom.notFound('User not found');
 
-      const user = await getOneUser({id});
-      if (!user) throw boom.notFound('User not found');
+    if (user.role === 'admin') {
+      throw boom.badRequest('Admin user cannot be deleted');
+    }
 
-      if(user?.role === 'admin'){
-        throw boom.badRequest('Admin cant be deleted');
-      } 
+    // Delete associated permission
+    await Permission.destroy({
+      where: { id: user.permissionId },
+      transaction
+    });
 
-      await user.destroy();
+    // Delete the user
+    await User.destroy({
+      where: { id },
+      transaction
+    });
 
-      return res.status(200).json(message(true, 'User deleted successfully'));
+    await transaction.commit();
+    return res.status(200).json(message(true, 'User deleted successfully'));
   } catch (error) {
+    await transaction.rollback();
     next(error);
   }
 };
@@ -349,6 +363,7 @@ const getMyPermission = async (req, res, next) => {
     next(error);
   }
 };
+
 
 
 
