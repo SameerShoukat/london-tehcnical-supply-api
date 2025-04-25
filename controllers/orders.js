@@ -17,7 +17,8 @@ const {
   generatePassword,
   message,
 } = require("../utils/hook");
-const ProductPricing = require("../models/products/pricing")
+const ProductPricing = require("../models/products/pricing");
+const ShipmentCharge = require("../models/shipmentCharges");
 
 const generateOrderNumber = async () => {
   const count = await Order.count();
@@ -815,6 +816,8 @@ const deleteOne = async (req, res, next) => {
   }
 };
 
+
+
 module.exports = {
   create,
   getOne,
@@ -823,5 +826,5 @@ module.exports = {
   updateStatus,
   deleteOne,
   getOneByOrderNumber,
-  updatePaymentStatus
+  updatePaymentStatus,
 };

@@ -15,6 +15,11 @@ const Order = sequelize.define('Order', {
       unique: true,
       allowNull: false
   },
+  couponCode: {
+    type: DataTypes.STRING,
+    unique: false,
+    allowNull: true
+  },
   accountId: {
         type: DataTypes.UUID,
         allowNull: true,

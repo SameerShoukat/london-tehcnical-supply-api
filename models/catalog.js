@@ -16,11 +16,7 @@ const Catalog = sequelize.define('Catalog', {
     allowNull: false
   },
   slug: {
-    type: DataTypes.STRING,
-    unique: {
-      args: true,
-      msg: 'This name is already in use. Please choose a different one.'
-    },
+    type: DataTypes.STRING
   },
   description: {
     type: DataTypes.TEXT,
@@ -60,8 +56,8 @@ const Catalog = sequelize.define('Catalog', {
 },
 {
   tableName : 'catalogs',
-  paranoid: true, // Enables soft deletes
-  timestamps: true, // Enables createdAt and updatedAt
+  paranoid: true,
+  timestamps: true, 
   hooks: {
     beforeCreate(instance) {
       instance.slug = createSlug(instance.name);

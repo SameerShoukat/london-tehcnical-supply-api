@@ -1,5 +1,5 @@
 // Description: This file contains the schema and model for the category.
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize');
 const sequelize = require('../config/database');
 const {createSlug} = require("../utils/hook");
 const Catalog = require('./catalog');
@@ -36,10 +36,7 @@ const Category = sequelize.define('Category', {
   },
   slug: {
     type: DataTypes.STRING,
-    unique: {
-      args: true,
-      msg : 'This name is already in use. Please choose a different one.'
-    }
+    unique :false
   },
   images: {
     type: DataTypes.ARRAY(DataTypes.STRING),
@@ -67,15 +64,34 @@ const Category = sequelize.define('Category', {
 },
 {
   tableName : 'categories',
-  paranoid: true, // Enables soft deletes
-  timestamps: true, // Enables createdAt and updatedAt
+  paranoid: true,
+  timestamps: true,
   hooks: {
-    beforeCreate(instance) {
+    beforeCreate: async (instance) => {
       instance.slug = createSlug(instance.name);
+      const existing = await Category.findOne({
+        where: { 
+          slug: instance.slug,
+          catalogId: instance.catalogId 
+        }
+      });
+      if (existing) {
+        throw new Error('A category with this name already exists in this catalog');
+      }
     },
-    beforeUpdate(instance) {
+    beforeUpdate: async (instance) => {
       if (instance.name) {
         instance.slug = createSlug(instance.name);
+        const existing = await Category.findOne({
+          where: { 
+            slug: instance.slug,
+            catalogId: instance.catalogId,
+            id: { [Op.ne]: instance.id }
+          }
+        });
+        if (existing) {
+          throw new Error('A category with this name already exists in this catalog');
+        }
       }
     },
   },

@@ -9,6 +9,13 @@ const { sequelize, models } = require('./models');
 const apiDocumentation =  require("./swagger")
 const {errorMiddleware} = require("./middleware/decorateError")
 const path = require("path")
+const geoip   = require('geoip-lite');
+
+const CURRENCY_MAP = {
+  GB: 'GBP',
+  AE: 'AED',
+ 
+};
 
 // Load environment variables
 dotenv.config();
@@ -39,15 +46,40 @@ if (process.env.NODE_ENV === 'development') {
 app.set('trust proxy', true);
 
 
-// Explicitly set headers to allow insecure connections
 app.use('/documentation', (req, res, next) => {
   res.set({
     'Cross-Origin-Opener-Policy': 'unsafe-none',
     'Cross-Origin-Embedder-Policy': 'unsafe-none',
-    'Content-Security-Policy': "default-src 'self' 'unsafe-inline'", // Relax CSP temporarily
+    'Content-Security-Policy': "default-src 'self' 'unsafe-inline'",
   });
   next();
 }, apiDocumentation);
+
+
+app.use((req, res, next) => {
+  // 1) grab client IP
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]
+           || req.ip;
+
+  // 2) do geo lookup
+  const geo = geoip.lookup(ip) || {};
+  const countryCode = geo.country || 'US';
+
+  // 3) map to currency (no default here)
+  const currency = CURRENCY_MAP[countryCode] || 'USD';
+  if (!currency) {
+    return res
+      .status(500)
+      .json({ message: 'Something went wrong: unable to determine currency for your region.' });
+  }
+
+  // 5) attach meta and proceed
+  req.meta = {
+    country: countryCode,
+    currency,
+  };
+  next();
+});
 
 
 app.use('/api/user', require('./routes/users'));
@@ -66,6 +98,9 @@ app.use('/api/order', require('./routes/order'));
 app.use('/api/quotes', require('./routes/productQuote'));
 app.use('/api/reviews', require('./routes/productReviews'));
 app.use('/api/gallery', require('./routes/gallery'));
+app.use('/api/gallery', require('./routes/gallery'));
+app.use('/api/coupon-codes', require('./routes/couponCodes'));
+app.use('/api/shipment-charges', require('./routes/shipmentCharges'));
 
 
 // Error handling middleware
@@ -81,6 +116,13 @@ app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
   try {
     await sequelize.authenticate();
     console.log('Database connected successfully');
+
+    // if you want to run any query
+    // await sequelize.query(
+    //     `ALTER TABLE "shipment_charges" DROP CONSTRAINT IF EXISTS "shipment_charges_url_key";`
+    // );
+    // console.log('Dropped sku constraint');
+
 
 
     // Sync models

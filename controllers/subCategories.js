@@ -9,15 +9,13 @@ const Category = require('../models/category');
 // Create a new sub category
 const create = async (req, res, next) => {
   try {
-
       const payload =  typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
       payload['images'] = req?.files?.length > 0  ? req.files.map(file => file.path) : [];
       payload['userId'] = req.user.id;
 
-      // Check if the user exists (including soft-deleted ones)
       const existingData = await SubCategory.findOne({
           paranoid: false,
-          where: { slug: createSlug(payload.name) },
+          where: { slug: createSlug(payload.name), catId : payload.catId},
       });
 
       if (existingData) {

@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize'); // Add Op for array operations
+const { DataTypes, Op } = require('sequelize');
 const sequelize = require('../../config/database');
 const { createSlug } = require('../../utils/hook');
 const Category = require('../category');
@@ -31,8 +31,7 @@ const Product = sequelize.define('Product', {
     },
     sku: {
       type: DataTypes.STRING,
-      unique: true,
-      allowNull: false
+      unique: false
     },
     productCode: {
       type: DataTypes.UUID,
@@ -49,7 +48,7 @@ const Product = sequelize.define('Product', {
     },
     slug: {
       type: DataTypes.STRING,
-      unique: true
+      unique: false
     },
     description: {
       type: DataTypes.TEXT,
@@ -129,8 +128,8 @@ const Product = sequelize.define('Product', {
     paranoid: true,
     timestamps: true,
     indexes: [
-      { unique: true, fields: ['slug'] },
-      { unique: true, fields: ['sku'] },
+      { fields: ['slug']},
+      { fields: ['sku'] },
       { fields: ['status'] },
       { fields: ['catalogId'] },
       { fields: ['catId'] },

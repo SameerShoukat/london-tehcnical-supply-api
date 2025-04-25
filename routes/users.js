@@ -32,11 +32,6 @@ const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 
 const permissionSchema = Joi.object({
-  accounts: Joi.array().items(
-    Joi.string().valid('view', 'manage', 'delete')
-  ).optional().messages({
-    'any.only': 'Invalid account permission'
-  }),
   stocks: Joi.array().items(
     Joi.string().valid('view', 'manage', 'delete')
   ).optional().messages({
@@ -51,6 +46,26 @@ const permissionSchema = Joi.object({
     Joi.string().valid('view', 'manage', 'delete')
   ).optional().messages({
     'any.only': 'Invalid finance permission'  
+  }),
+  purchase: Joi.array().items(
+    Joi.string().valid('view', 'manage', 'delete')
+  ).optional().messages({
+    'any.only': 'Invalid purchase permission'
+  }),
+  customer_interaction: Joi.array().items(
+    Joi.string().valid('view', 'manage', 'delete')
+  ).optional().messages({
+    'any.only': 'Invalid customer interaction permission'
+  }),
+  setting: Joi.array().items(
+    Joi.string().valid('view', 'manage', 'delete')
+  ).optional().messages({
+    'any.only': 'Invalid setting permission'
+  }),
+  analytics: Joi.array().items(
+    Joi.string().valid('view')
+  ).optional().messages({
+    'any.only': 'Invalid analytics permission'
   })
 });
 
@@ -91,6 +106,8 @@ const refreshTokenSchema = Joi.object({
  *     tags:
  *     - USER
  *     summary: User register
+ *     security:
+ *     - Bearer: []  # Reference to the security scheme
  *     requestBody:
  *      required: true
  *      content:
@@ -99,14 +116,22 @@ const refreshTokenSchema = Joi.object({
  *            type: object
  *            required:
  *              - email
- *              - password
+ *              - permissions
  *            properties:
  *              email:
  *                type: string
  *                default: admin@londontechnicalsupply.com
  *              permissions:
  *                type: object
- *                default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                default: {
+ *                  "stocks": ["view", "manage", "delete"],
+ *                  "orders": ["view", "manage", "delete"],
+ *                  "finance": ["view", "manage", "delete"],
+ *                  "purchase": ["view", "manage", "delete"],
+ *                  "customer_interaction": ["view", "manage", "delete"],
+ *                  "setting": ["view", "manage", "delete"],
+ *                  "analytics": ["view"]
+ *                }
  *     responses:
  *       200:
  *         description: Success
@@ -123,7 +148,15 @@ const refreshTokenSchema = Joi.object({
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -131,7 +164,7 @@ const refreshTokenSchema = Joi.object({
  *       404:
  *         description: not found
  */
-router.post('/register', validateRequest(createSchema), registerUser);
+router.post('/register', authorize('setting', 'view'), validateRequest(createSchema), registerUser);
 
 /**
  * @openapi
@@ -172,7 +205,15 @@ router.post('/register', validateRequest(createSchema), registerUser);
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -207,7 +248,15 @@ router.post('/login', validateRequest(userSchema), loginUser);
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -232,17 +281,47 @@ router.get('/profile', authorize('', '', true), getUserProfile);
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                       accounts: ["read", "manage"]
- *                       stocks: ["read"]
- *                       orders: ["manage", "delete"]
- *                       finance: ["read"]
+ *               type: object
+ *               properties:
+ *                 stocks:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     enum: [view, manage, delete]
+ *                 orders:
+ *                   type: array 
+ *                   items:
+ *                     type: string
+ *                     enum: [view, manage, delete]
+ *                 finance:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     enum: [view, manage, delete]
+ *                 purchase:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     enum: [view, manage, delete]
+ *                 customer_interaction:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     enum: [view, manage, delete]
+ *                 setting:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     enum: [view, manage, delete]
+ *                 analytics:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     enum: [view]
  *       404:
  *         description: Not found
  */
+
 
 router.get('/permission', authorize('', '', true), getMyPermission);
 
@@ -284,7 +363,15 @@ router.get('/permission', authorize('', '', true), getMyPermission);
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -326,7 +413,15 @@ router.get('/all', authorize('setting', 'view'), getAll);
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -368,7 +463,15 @@ router.get('/activate/:id', authorize('setting', 'view'), activateUser);
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -410,7 +513,15 @@ router.get('/deactivate/:id', authorize('setting', 'view'), deactivateUser);
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -461,7 +572,15 @@ router.get('/:id', authorize('setting', 'view'), getOne);
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -519,7 +638,15 @@ router.put('/profile', authorize('', '', true), updateUserProfile);
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:
@@ -561,7 +688,15 @@ router.put('/:id', authorize('setting', 'manage'), updateUserProfile);
  *                    example: "sameershoukat000@gmail.com"
  *                  permissions:
  *                    type: object
- *                    default:  {"accounts": ["read", "manage"],"stocks": ["read"],"orders": ["manage", "delete"],"finance": ["read"]}
+ *                    default: {
+ *                      "stocks": ["view", "manage", "delete"],
+ *                      "orders": ["view", "manage", "delete"],
+ *                      "finance": ["view", "manage", "delete"],
+ *                      "purchase": ["view", "manage", "delete"],
+ *                      "customer_interaction": ["view", "manage", "delete"],
+ *                      "setting": ["view", "manage", "delete"],
+ *                      "analytics": ["view"]
+ *                    }
  *                  jwtToken:
  *                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1MTQxMjMwZWQyNGEwYWQ3YmRiNTNkNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTY5NjE2NzU5MSwiZXhwIjoxNjk2MTcwNTkxfQ.D7nN9Xo8f7uWflvIG73UItGKcaHRm5-NXQ-XNJJbOs4"
  *                  refreshToken:

@@ -2,6 +2,24 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const { createSlug } = require('../utils/hook');
 
+// Define valid permission sets
+const VALID_FULL_PERMS = Object.freeze(['view', 'manage', 'delete']);
+const VALID_VIEW_ONLY = Object.freeze(['view']);
+
+// Reusable validation helper
+function validatePermissions(value, validValues, fieldName) {
+  if (value) {
+    if (!Array.isArray(value)) {
+      throw new Error(`${fieldName} must be an array of strings.`);
+    }
+    if (!value.every(item => validValues.includes(item))) {
+      throw new Error(
+        `${fieldName} can only contain: ${validValues.map(v => `"${v}"`).join(', ')}.`
+      );
+    }
+  }
+}
+
 const Permission = sequelize.define(
   'Permission',
   {
@@ -11,45 +29,12 @@ const Permission = sequelize.define(
       defaultValue: DataTypes.UUIDV4,
       allowNull: false,
     },
-    setting: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      allowNull: true,
-      validate: {
-        isValidArray(value) {
-          if (value) {
-            const validValues = ['view', 'manage', 'delete'];
-            if (!value.every(item => validValues.includes(item))) {
-              throw new Error('Accounts array can only contain "view", "manage", or "delete".');
-            }
-          }
-        },
-      },
-    },
     stocks: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
       validate: {
-        isValidArray(value) {
-          if (value) {
-            const validValues = ['view', 'manage', 'delete'];
-            if (!value.every(item => validValues.includes(item))) {
-              throw new Error('Stocks array can only contain "view", "manage", or "delete".');
-            }
-          }
-        },
-      },
-    },
-    purchase: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      allowNull: true,
-      validate: {
-        isValidArray(value) {
-          if (value) {
-            const validValues = ['view', 'manage', 'delete'];
-            if (!value.every(item => validValues.includes(item))) {
-              throw new Error('Stocks array can only contain "view", "manage", or "delete".');
-            }
-          }
+        isValidStocks(value) {
+          validatePermissions(value, VALID_FULL_PERMS, 'Stocks');
         },
       },
     },
@@ -57,13 +42,8 @@ const Permission = sequelize.define(
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
       validate: {
-        isValidArray(value) {
-          if (value) {
-            const validValues = ['view', 'manage', 'delete'];
-            if (!value.every(item => validValues.includes(item))) {
-              throw new Error('Orders array can only contain "view", "manage", or "delete".');
-            }
-          }
+        isValidOrders(value) {
+          validatePermissions(value, VALID_FULL_PERMS, 'Orders');
         },
       },
     },
@@ -71,23 +51,56 @@ const Permission = sequelize.define(
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
       validate: {
-        isValidArray(value) {
-          if (value) {
-            const validValues = ['view', 'manage', 'delete'];
-            if (!value.every(item => validValues.includes(item))) {
-              throw new Error('Finance array can only contain "view", "manage", or "delete".');
-            }
-          }
+        isValidFinance(value) {
+          validatePermissions(value, VALID_FULL_PERMS, 'Finance');
+        },
+      },
+    },
+    purchase: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+      validate: {
+        isValidPurchase(value) {
+          validatePermissions(value, VALID_FULL_PERMS, 'Purchase');
+        },
+      },
+    },
+    customer_interaction: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+      validate: {
+        isValidCustomerInteraction(value) {
+          validatePermissions(value, VALID_FULL_PERMS, 'Customer Interaction');
+        },
+      },
+    },
+    analytics: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+      validate: {
+        isValidAnalytics(value) {
+          validatePermissions(value, VALID_VIEW_ONLY, 'Analytics');
+        },
+      },
+    },
+    setting: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+      validate: {
+        isValidStocks(value) {
+          validatePermissions(value, VALID_FULL_PERMS, 'Stocks');
         },
       },
     },
   },
   {
     tableName: 'permissions',
-    timestamps: true, // Enables createdAt and updatedAt
+    timestamps: true,
     hooks: {
       beforeCreate(instance) {
-        instance.slug = createSlug(instance.name);
+        if (instance.name) {
+          instance.slug = createSlug(instance.name);
+        }
       },
       beforeUpdate(instance) {
         if (instance.name) {

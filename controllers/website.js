@@ -1,6 +1,5 @@
 const { createSlug } = require("../utils/hook");
 const _ = require("lodash");
-const { DataTypes, Op } = require('sequelize'); // Add Op for array operations
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
 const Website = require('../models/website');
