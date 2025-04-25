@@ -10,7 +10,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     dialect: 'postgres',
     logging: false,
-    logging: process.env.NODE_ENV === 'development' ? console.log : false, // Disable logging in production
+    // logging: process.env.NODE_ENV === 'development' ? console.log : false, // Disable logging in production
     pool: {
       max: 5,
       min: 0,

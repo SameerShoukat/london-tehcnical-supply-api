@@ -56,8 +56,8 @@ const Catalog = sequelize.define('Catalog', {
 },
 {
   tableName : 'catalogs',
-  paranoid: true, // Enables soft deletes
-  timestamps: true, // Enables createdAt and updatedAt
+  paranoid: true,
+  timestamps: true, 
   hooks: {
     beforeCreate(instance) {
       instance.slug = createSlug(instance.name);

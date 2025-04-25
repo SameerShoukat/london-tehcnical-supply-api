@@ -1,5 +1,5 @@
 // Description: This file contains the schema and model for the category.
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize');
 const sequelize = require('../config/database');
 const {createSlug} = require("../utils/hook");
 const Catalog = require('./catalog');
@@ -86,7 +86,7 @@ const Category = sequelize.define('Category', {
           where: { 
             slug: instance.slug,
             catalogId: instance.catalogId,
-            id: { [sequelize.Op.ne]: instance.id }
+            id: { [Op.ne]: instance.id }
           }
         });
         if (existing) {

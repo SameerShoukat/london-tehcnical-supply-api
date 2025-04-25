@@ -105,20 +105,7 @@ const validateCode = async (req, res, next) => {
           throw boom.badRequest('Country and total amount are required');
       }
       
-      // Get user IP and determine country (placeholder implementation)
-      const userIP =
-          req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-
-      const selectedCountry = "UK"; // TODO: Implement actual country detection
-
-      // Define price currency mapping based on country
-      const currencyMap = {
-        UK: "GBP",
-        US: "USD",
-        UAE: "AED",
-      };
-      
-      const currency = currencyMap[selectedCountry] || "GBP";
+      const currency = req?.meta?.currency;
 
     const coupon = await CouponCode.findOne({
       where: { code, currency }

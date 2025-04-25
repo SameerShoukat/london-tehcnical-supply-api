@@ -9,6 +9,13 @@ const { sequelize, models } = require('./models');
 const apiDocumentation =  require("./swagger")
 const {errorMiddleware} = require("./middleware/decorateError")
 const path = require("path")
+const geoip   = require('geoip-lite');
+
+const CURRENCY_MAP = {
+  GB: 'GBP',
+  AE: 'AED',
+ 
+};
 
 // Load environment variables
 dotenv.config();
@@ -47,6 +54,32 @@ app.use('/documentation', (req, res, next) => {
   });
   next();
 }, apiDocumentation);
+
+
+app.use((req, res, next) => {
+  // 1) grab client IP
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]
+           || req.ip;
+
+  // 2) do geo lookup
+  const geo = geoip.lookup(ip) || {};
+  const countryCode = geo.country || 'US';
+
+  // 3) map to currency (no default here)
+  const currency = CURRENCY_MAP[countryCode] || 'USD';
+  if (!currency) {
+    return res
+      .status(500)
+      .json({ message: 'Something went wrong: unable to determine currency for your region.' });
+  }
+
+  // 5) attach meta and proceed
+  req.meta = {
+    country: countryCode,
+    currency,
+  };
+  next();
+});
 
 
 app.use('/api/user', require('./routes/users'));

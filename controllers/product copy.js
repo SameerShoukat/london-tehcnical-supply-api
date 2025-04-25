@@ -474,17 +474,8 @@ const productList = async (req, res, next) => {
       sortOrder = 'DESC',
     } = req.query;
 
-    // Get user IP and determine country
-    const userIP = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const country = 'UK'; // Implement this function
-    
-    // Define price currency mapping based on country
-    const currencyMap = {
-      UK: 'GBP',
-      US: 'USD',
-      UAE: 'AED'
-    };
-    const currency = currencyMap[country] || 'USD'; // Default to USD
+
+    const currency = req?.meta?.currency;
 
     // Build base where clause for the Product model
     const baseWhere = _.pickBy({ catalogId, categoryId, subCategoryId }, _.identity);
@@ -616,18 +607,8 @@ const productList = async (req, res, next) => {
 const getProductDetail = async (req, res, next) => {
   try {
     const { slug } = req.params;
-
-    // Get user IP and determine country (similar to productList)
-    const userIP = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const country = 'UK'; // Implement actual country detection
     
-    // Define price currency mapping based on country
-    const currencyMap = {
-      UK: 'GBP',
-      US: 'USD',
-      UAE: 'AED'
-    };
-    const currency = currencyMap[country] || 'USD';
+    const currency = req?.meta?.currency;
 
     const productData = await Product.findOne({where:{slug}})
 

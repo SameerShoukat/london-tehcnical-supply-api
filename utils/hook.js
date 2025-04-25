@@ -1,10 +1,12 @@
 
 const createSlug = (value) =>{
-    return  value ?  value.toLowerCase()
+  const shortSuffix = Math.random().toString(36).substr(2, 4);
+  const uniqueSlug =   value ?  value.toLowerCase()
     .replace(/\s+/g, '_')      
     .replace(/[^\w-]+/g, '')     
     .replace(/^-+|-+$/g, '') : null   
-
+  if(!uniqueSlug) return uniqueSlug
+  return `${uniqueSlug}-${shortSuffix}`;
 }
 
 const  message = (status, message, data, count, pagination) =>{

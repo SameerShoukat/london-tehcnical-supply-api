@@ -14,6 +14,7 @@ const ProductAttribute = require("../models/products/product_attribute");
 const ProductPricing = require("../models/products/pricing");
 const Attribute = require("../models/products/attributes");
 const ProductCodes = require("../models/products/codes");
+const ProductTags = require("../models/products/tags")
 
 // Common error handler
 const handleError = (error, next) => {
@@ -573,27 +574,28 @@ const assignTag = async (req, res, next) => {
       throw boom.badRequest("No tags provided");
     }
 
-    // Validate each tag
-    // const invalidTags = tagsToAdd.filter(tag => !Object.values(TAGS).includes(tag));
-    // if (invalidTags.length > 0) {
-    //   throw boom.badRequest(`Invalid tags: ${invalidTags.join(', ')}. Valid tags are: ${Object.values(TAGS).join(', ')}`);
-    // }
+    const tags = await ProductTags.findAll({
+      where: {
+        slug: { [Op.in]: tagsToAdd }
+      }
+    });
+    if(tags.length !== tagsToAdd.length) throw boom.badRequest("Some tags are invalid")
 
     // Get current tags and filter out duplicates
-    const currentTags = product.tags || [];
-    const uniqueNewTags = tagsToAdd.filter((tag) => !currentTags.includes(tag));
+    // const currentTags = product.tags || [];
+    // const uniqueNewTags = tagsToAdd.filter((tag) => !currentTags.includes(tag));
 
-    if (uniqueNewTags.length === 0) {
-      throw boom.conflict("All tags already exist on the product");
-    }
+    // if (uniqueNewTags.length === 0) {
+    //   throw boom.conflict("All tags already exist on the product");
+    // }
 
-    // Merge and update
-    const updatedTags = [...currentTags, ...uniqueNewTags];
-    await product.update({ tags: updatedTags });
+    // // Merge and update
+    // const updatedTags = [...currentTags, ...uniqueNewTags];
+    await product.update({ tags: tagsToAdd });
 
     return res
       .status(200)
-      .json(message(true, "Product tags added successfully", product));
+      .json(message(true, "Product tags updated successfully", product));
   } catch (error) {
     next(error);
   }
@@ -689,19 +691,8 @@ const productList = async (req, res, next) => {
     const { catalog, categories, subcategories, brands, vehicle_type, tag } =
       req.body;
 
-    // Get user IP and determine country
-    const userIP =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const country = "UK"; // Implement this function
-
-    // Define price currency mapping based on country
-    const currencyMap = {
-      UK: "GBP",
-      US: "USD",
-      UAE: "AED",
-    };
-    const currency = currencyMap[country] || "USD"; // Default to USD
-
+    const currency = req?.meta?.currency;
+    
     const filterConditions = [];
 
     // Categories filter
@@ -833,18 +824,7 @@ const getProductDetail = async (req, res, next) => {
   try {
     const { slug } = req.params;
 
-    // Get user IP and determine country (placeholder implementation)
-    const userIP =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const country = "UK"; // TODO: Implement actual country detection
-
-    // Define price currency mapping based on country
-    const currencyMap = {
-      UK: "GBP",
-      US: "USD",
-      UAE: "AED",
-    };
-    const currency = currencyMap[country] || "USD";
+    const currency = req?.meta?.currency;
 
     const productList = {};
 
@@ -963,18 +943,7 @@ const getProductInformation = async (req, res, next) => {
   try {
     const { slug } = req.params;
 
-    // Get user IP and determine country (placeholder implementation)
-    const userIP =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const country = "UK"; // TODO: Implement actual country detection
-
-    // Define price currency mapping based on country
-    const currencyMap = {
-      UK: "GBP",
-      US: "USD",
-      UAE: "AED",
-    };
-    const currency = currencyMap[country] || "USD";
+    const currency = req?.meta?.currency;
 
     const productList = {};
 
@@ -1025,19 +994,8 @@ const searchProducts = async (req, res, next) => {
   try {
     const { name } = req.params;
 
-    // Get user IP and determine country (placeholder implementation)
-    const userIP =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const country = "UK"; // TODO: Implement actual country detection
-
-    // Define price currency mapping based on country
-    const currencyMap = {
-      UK: "GBP",
-      US: "USD",
-      UAE: "AED",
-    };
-    const currency = currencyMap[country] || "USD";
-
+    const currency = req?.meta?.currency;
+    
     const { Op } = require("sequelize");
 
     const relatedProducts = await Product.findAll({

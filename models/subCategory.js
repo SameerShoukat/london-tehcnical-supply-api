@@ -1,5 +1,5 @@
 // models/subCategory.js
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize');
 const sequelize = require('../config/database');
 const Category = require('./category');
 const { createSlug } = require('../utils/hook');
@@ -85,7 +85,7 @@ const SubCategory = sequelize.define('SubCategory', {
           where: { 
             slug: instance.slug,
             catId: instance.catId,
-            id: { [sequelize.Op.ne]: instance.id }
+            id: { [Op.ne]: instance.id }
           }
         });
         if (existing) {
