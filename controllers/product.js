@@ -385,7 +385,7 @@ const updateOne = async (req, res, next) => {
   const transaction = await sequelize.transaction();
   try {
     const { id } = req.params;
-    // 1) Parse incoming data
+
     const rawData =
       typeof req.body.data === "string"
         ? JSON.parse(req.body.data)
@@ -418,10 +418,12 @@ const updateOne = async (req, res, next) => {
       );
     }
 
-    // 4) Handle new images
-    if (req.files?.length) {
-      payload.images = req.files.map((f) => f.path);
+    if (req.files?.length > 0) {
+      const newImages = req.files.map(f => f.path);
+      payload.images = [...payload.images, ...newImages];
     }
+
+    
 
     // 5) Update the product row
     await existingProduct.update(payload, { transaction });
@@ -841,7 +843,7 @@ const getProductDetail = async (req, res, next) => {
         "tags",
         "inStock",
         "description",
-        "productCode", // Ensure consistency with ProductCodes if used later
+        "productCode", 
       ],
       include: [
         {

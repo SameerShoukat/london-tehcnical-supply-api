@@ -34,8 +34,7 @@ const updateStatusSchema = Joi.object({
       return value;
     })
     .description('New status for the order'),
-  reason: Joi.string().max(500).optional()
-    .description('Reason for status change')
+  reason: Joi.string().max(500).optional().allow('')
 }).messages({
   'any.invalid': 'Invalid status for the specified type'
 });

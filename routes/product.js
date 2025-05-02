@@ -75,8 +75,13 @@ const validationSchema = Joi.object({
     discountType: Joi.string().valid('percentage', 'fixed').allow('').optional(),
     discountValue: Joi.number().allow('').optional(),
     finalPrice: Joi.number().optional()
-  })).optional()
-});
+  })).optional(),
+  images: Joi.array()
+    .items(Joi.string().allow(''))
+    .allow(null)
+    .default([])
+    .optional(),
+})
 
 
 const { 
