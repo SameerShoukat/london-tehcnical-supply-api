@@ -89,6 +89,8 @@ app.use('/api/category', require('./routes/category'));
 app.use('/api/subCategory', require('./routes/subCategory'));
 app.use('/api/website', require('./routes/website'));
 app.use('/api/attribute', require('./routes/attributes'));
+app.use('/api/brand', require('./routes/brand'));
+app.use('/api/vehicle-type', require('./routes/vehicleType'));
 app.use('/api/vendor', require('./routes/vendor'));
 app.use('/api/purchase', require('./routes/purchase'));
 app.use('/api/product', require('./routes/product'));

@@ -15,6 +15,8 @@ const ProductPricing = require("../models/products/pricing");
 const Attribute = require("../models/products/attributes");
 const ProductCodes = require("../models/products/codes");
 const ProductTags = require("../models/products/tags")
+const Brand = require("../models/products/brand");
+const VehicleType = require("../models/products/vehicleType");
 
 // Common error handler
 const handleError = (error, next) => {
@@ -60,14 +62,15 @@ const create = async (req, res, next) => {
       subCategoryId: payloadData.subCategoryId || null,
       websiteId: payloadData.websiteId || null,
     };
-    payload.userId = req.user.id;
 
+    payload.userId = req.user.id;
     if (req.files?.length > 0) {
       payload.images = req.files.map((file) => file.path);
     }
     let where = {};
     const slug = createSlug(payload.name);
     where["slug"] = slug;
+
     if (payloadData?.catalogId) {
       where["catalogId"] = payloadData.catalogId;
     }
@@ -83,6 +86,7 @@ const create = async (req, res, next) => {
     if (payload?.sku) {
       where["websiteId"] = payloadData.websiteId;
     }
+
     const existingProduct = await Product.findOne({
       paranoid: false,
       where: where,
@@ -96,7 +100,6 @@ const create = async (req, res, next) => {
     } else if (existingProduct) {
       throw boom.conflict("Product already exists with this name");
     } else {
-      // Create product
       product = await Product.create(payload, { transaction });
     }
     const attributes = payload.attributes || [],
@@ -348,7 +351,7 @@ const getAll = async (req, res, next) => {
 
 const getOne = async (req, res, next) => {
   try {
-    console.log(req.params.id);
+
     const product = await Product.findByPk(req.params.id, {
       include: [
         {
@@ -652,36 +655,39 @@ const attributeList = async (req, res, next) => {
     const { attributeName } = req.query;
     if (!attributeName)
       throw boom.badRequest("Attribute is require to access this endpoint");
+      if(attributeName === 'brand') {
+        const results = await Brand.findAll({
+          attributes: [
+            ["id", "value"],
+            "name",
+            "productCount",
+            "slug"
+          ],
+          order: [["name", "ASC"]],
+        });
+        res
+        .status(200)
+        .json(message(true, "Attribute retrieved successfully", results)); 
+      }
+      else if(attributeName === 'vehicle_type') {
+        const results = await VehicleType.findAll({
+          attributes: [
+            ["id", "value"],
+            "name",
+            "productCount",
+            "slug"
+          ],
+          order: [["name", "ASC"]],
+        });
+        res
+        .status(200)
+        .json(message(true, "Attribute retrieved successfully", results)); 
 
-    // Find the attribute (case-insensitive)
-    const attribute = await Attribute.findOne({
-      where: {
-        name: {
-          [Op.iLike]: attributeName,
-        },
-      },
-    });
+      }
+      else{
+        res.status(400).json(message(false, "Invalid attribute name"));
+      }
 
-    if (!attribute) {
-      return res.status(404).json({ message: "Attribute not found" });
-    }
-
-    const results = await ProductAttribute.findAll({
-      attributes: [
-        "value",
-        [sequelize.fn("COUNT", sequelize.col("productId")), "productCount"],
-        "attributeId", // Include attributeId
-      ],
-      where: {
-        attributeId: attribute.id, // Filter by the attribute ID
-      },
-      group: ["value", "attributeId"], // Group by both value and attributeId
-      order: [["value", "ASC"]],
-    });
-
-    res
-      .status(200)
-      .json(message(true, "Attribute retrieved successfully", results));
   } catch (error) {
     next(error);
   }
@@ -727,48 +733,28 @@ const productList = async (req, res, next) => {
     }
 
     // Prepare attribute filtering
-    let attributeIds = [];
-    let attributeValues = [];
-    let brandAttribute, vehicleTypeAttribute;
-
     if (brands?.length > 0) {
-      brandAttribute = await Attribute.findOne({
-        where: { slug: "brand" },
+      const brandIds = await Brand.findAll({
+        where: { slug: { [Op.in]: brands } },
         attributes: ["id"],
-      });
-      if (brandAttribute) {
-        attributeIds.push(brandAttribute.id);
-        // Assuming brands is an array of brand values
-        attributeValues = attributeValues.concat(brands);
+      }).then((brandsData) => brandsData.map((brand) => brand.id));
+      
+      if (brandIds.length > 0) {
+        filterConditions.push({ brandId: { [Op.in]: brandIds } });
       }
     }
 
+    // Vehicle Types filter - using direct relationship
     if (vehicle_type?.length > 0) {
-      vehicleTypeAttribute = await Attribute.findOne({
-        where: { slug: "vehicle_type" },
+      const vehicleTypeIds = await VehicleType.findAll({
+        where: { slug: { [Op.in]: vehicle_type } },
         attributes: ["id"],
-      });
-      if (vehicleTypeAttribute) {
-        attributeIds.push(vehicleTypeAttribute.id);
-        // Assuming vehicle_type is an array of vehicle type values
-        attributeValues = attributeValues.concat(vehicle_type);
+      }).then((typesData) => typesData.map((type) => type.id));
+      
+      if (vehicleTypeIds.length > 0) {
+        filterConditions.push({ vehicleTypeId: { [Op.in]: vehicleTypeIds } });
       }
-    }
-
-    if (attributeIds.length > 0 && attributeValues.length > 0) {
-      const productIdsByAttributes = await ProductAttribute.findAll({
-        where: {
-          value: { [Op.in]: attributeValues },
-          attributeId: { [Op.in]: attributeIds },
-        },
-        attributes: ["productId"],
-      }).then((attrs) => attrs.map((attr) => attr.productId));
-
-      // If there are matching product IDs, add them as a filter condition
-      if (productIdsByAttributes.length > 0) {
-        filterConditions.push({ id: { [Op.in]: productIdsByAttributes } });
-      }
-    }
+}
 
     if (websiteId) {
       filterConditions.push({ websiteId: { [Op.overlap]: [websiteId] } });
@@ -822,6 +808,8 @@ const productList = async (req, res, next) => {
   }
 };
 
+
+
 const getProductDetail = async (req, res, next) => {
   try {
     const { slug } = req.params;
@@ -834,53 +822,63 @@ const getProductDetail = async (req, res, next) => {
     const product = await Product.findOne({
       where: { slug },
       attributes: [
-        "id",
-        "sku",
-        "name",
-        "slug",
-        "images",
-        "status",
-        "tags",
-        "inStock",
-        "description",
-        "productCode", 
+      "id",
+      "sku",
+      "name", 
+      "slug",
+      "images",
+      "status",
+      "tags",
+      "inStock",
+      "description",
+      "productCode",
       ],
       include: [
+      {
+        model: ProductPricing,
+        as: "productPricing",
+        attributes: [
+        "currency",
+        "discountType", 
+        "discountValue",
+        "basePrice",
+        "finalPrice",
+        ],
+        where: { currency },
+        required: true,
+      },
+      {
+        model: ProductAttribute,
+        as: "productAttributes",
+        attributes: ["value"],
+        include: [
         {
-          model: ProductPricing,
-          as: "productPricing",
-          attributes: [
-            "currency",
-            "discountType",
-            "discountValue",
-            "basePrice",
-            "finalPrice",
-          ],
-          where: { currency },
-          required: true,
+          model: Attribute,
+          as: "attribute", 
+          attributes: ["name"],
         },
-        {
-          model: ProductAttribute,
-          as: "productAttributes",
-          attributes: ["value"],
-          include: [
-            {
-              model: Attribute,
-              as: "attribute",
-              attributes: ["name"],
-            },
-          ],
-        },
-        {
-          model: Category,
-          as: "category",
-          attributes: ["name", "slug"],
-        },
-        {
-          model: SubCategory,
-          as: "subCategory",
-          attributes: ["name", "slug"],
-        },
+        ],
+      },
+      {
+        model: Category,
+        as: "category",
+        attributes: ["name", "slug"],
+      },
+      {
+        model: SubCategory,
+        as: "subCategory",
+        attributes: ["name", "slug"], 
+      },
+      {
+        model: Brand,
+        as: "brand",
+        attributes: ["name", "slug"]
+      },
+      {
+        model: VehicleType,
+        as: "vehicleType",
+        attributes: ["name", "slug"]
+      }
       ],
     });
 

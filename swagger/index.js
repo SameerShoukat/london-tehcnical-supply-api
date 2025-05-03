@@ -38,7 +38,7 @@ const options = {
       }
     },
   },
-  apis: ['./routes/users.js', './routes/catalog.js', './routes/category.js', './routes/subCategory.js', './routes/website.js', './routes/attributes.js', './routes/product.js', './routes/productTag.js', './routes/gallery.js', './routes/vendor.js', './routes/purchase.js', './routes/constant.js', './routes/order.js','./routes/order.js','./routes/productQuote.js', './routes/productReviews.js', './routes/couponCodes.js', './routes/shipmentCharges.js']
+  apis: ['./routes/users.js', './routes/catalog.js', './routes/category.js', './routes/subCategory.js', './routes/website.js', './routes/attributes.js', './routes/product.js', './routes/productTag.js', './routes/gallery.js', './routes/vendor.js', './routes/purchase.js', './routes/constant.js', './routes/order.js','./routes/order.js','./routes/productQuote.js', './routes/productReviews.js', './routes/couponCodes.js', './routes/shipmentCharges.js', './routes/brand.js', './routes/vehicleType.js']
 }
 
 

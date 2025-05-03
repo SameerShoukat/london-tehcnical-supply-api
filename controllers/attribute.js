@@ -71,7 +71,7 @@ const getAll = async (req, res, next) => {
 const getOne = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const attribute = await Attribute.findByPk(id,{
+        const attribute = await Attribute.findByPk(id, {
           include: [
             {
               model: User,
@@ -113,8 +113,6 @@ const deleteOne = async (req, res, next) => {
     try {
         const { id } = req.params;
         const attribute = await Attribute.findByPk(id);
-        if(['brand', 'vehicle_type'].includes(attribute.slug)) throw boom.badRequest("You cant delete this attribute")
-
         if (!attribute) {
             throw boom.notFound('Attribute not found');
         }
@@ -138,8 +136,6 @@ const attributeDropdown = async (req, res, next) => {
     next(error);
   }
 }
-
-
 
 
 

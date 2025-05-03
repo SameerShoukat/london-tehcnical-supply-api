@@ -41,6 +41,8 @@ const validationSchema = Joi.object({
       'string.empty': 'Product Sku is required'
     }),
   productCode : Joi.string().optional().allow('', null),
+  brandId : Joi.string().optional().allow('', null),
+  vehicleTypeId : Joi.string().optional().allow('', null),
   inStock: Joi.number().integer().allow(null).optional(),
   catalogId: Joi.string().allow('', null).optional(),
   catId: Joi.string().allow('', null).optional(),
@@ -92,6 +94,7 @@ const {
   deleteOneCode,
   codesDropdown
 } = require('../controllers/productCode');
+const VehicleType = require('../models/products/vehicleType');
 
 // Validation schemas
 const productCodeValidationSchema = Joi.object({
@@ -1103,6 +1106,8 @@ router.post('/removeTag', authorize('stock', 'manage'), removeTag);
  *                   "catId": "123e4567-e89b-12d3-a456-426614174000",
  *                   "websiteId": "987fcdeb-51a2-4321-9b42-789012345678",
  *                   "subCategoryId": "456e789a-b12c-3def-4567-890123456789",
+ *                   "vehicleTypeId": "987fcdeb-51a2-4321-9b42-76665eee",
+ *                   "brandId": "456e789a-b12c-3def-4567-9958585wwwww",
  *                   "description": "Professional grade power drill with variable speed control",
  *                   "status": "active",
  *                   "attributes": [
@@ -1216,6 +1221,8 @@ router.post('/', authorize('stock', 'manage'), upload.array('files', 5), validat
  *                   "catId": "123e4567-e89b-12d3-a456-426614174000",
  *                   "websiteId": "987fcdeb-51a2-4321-9b42-789012345678",
  *                   "subCategoryId": "456e789a-b12c-3def-4567-890123456789",
+ *                   "vehicleTypeId": "987fcdeb-51a2-4321-9b42-76665eee",
+ *                   "brandId": "456e789a-b12c-3def-4567-9958585wwwww",
  *                   "description": "Professional grade power drill with variable speed control",
  *                   "status": "active",
  *                   "attributes": [
