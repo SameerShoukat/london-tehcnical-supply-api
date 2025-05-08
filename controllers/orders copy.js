@@ -1,3 +1,4 @@
+// services/orderService.js
 const {
   Order,
   OrderItem,
@@ -9,14 +10,15 @@ const {
 const sequelize = require("../config/database");
 const _ = require("lodash");
 const boom = require("@hapi/boom");
-const { ORDER_STATUS, ORDER_PAYMENT_STATUS, CURRENCY_BY_COUNTRY } = require("../constant/types");
-const { Product } = require("../models/products/index");
+const { ORDER_STATUS, ORDER_PAYMENT_STATUS } = require("../constant/types");
+const {Product} = require('../models/products/index');
 const {
   calculateFinalPrice,
   generatePassword,
   message,
 } = require("../utils/hook");
 const ProductPricing = require("../models/products/pricing");
+const ShipmentCharge = require("../models/shipmentCharges");
 
 const generateOrderNumber = async () => {
   const count = await Order.count();
@@ -24,20 +26,16 @@ const generateOrderNumber = async () => {
 };
 
 const create = async (req, res, next) => {
-  const requestCurrency = req?.meta?.currency;
+  const currency = "GBP";
+  const shipping = 10.99;
+  const taxAmount = 0.25;
+  let discount = 0;
+
   let shippingAddressSnapshot = "";
   let billingAddressSnapshot = "";
-  const {
-    items,
-    email,
-    shippingAddress,
-    billingAddress,
-    paymentMethod,
-    website,
-    shippingCost: shipping = 0,
-    tax : taxAmount = 0,
-    discount = 0
-  } = req.body;
+
+  const { items, email, shippingAddress, billingAddress, paymentMethod, website } =
+    req.body;
 
   // Validate required fields
   if (!items || !items.length) {
@@ -46,7 +44,7 @@ const create = async (req, res, next) => {
 
   // Start transaction
   const transaction = await sequelize.transaction();
-
+  
   try {
     // Account handling
     let accountId = req?.account?.id ?? null;
@@ -103,21 +101,11 @@ const create = async (req, res, next) => {
       "billing"
     );
 
-    if(!shippingAddress?.country) throw boom.badImplementation("Country not found")
-
-    const currency = CURRENCY_BY_COUNTRY[shippingAddress?.country] || 'USD'
-
-    if (requestCurrency !== currency) {
-      throw boom.forbidden(
-        `Currency must be ${currency} for orders shipping to ${shippingAddress.country}`
-      );
-    }
-    
     // Validate products and calculate totals
     const productIds = items.map((item) => item.productId);
     const products = await Product.findAll({
       where: { id: productIds },
-      attributes: ["id", "name", "sku", "inStock", "inStock"],
+      attributes: ["id", "name", "sku"],
       include: [
         {
           model: ProductPricing,
@@ -136,59 +124,14 @@ const create = async (req, res, next) => {
       transaction,
     });
 
-    // Check if all products are in stock
-    const outOfStockProducts = [];
-    const insufficientStockProducts = [];
-
     products.forEach((product) => {
-      const orderItem = items.find((item) => item.productId === product.id);
-
-      if (!product.inStock) {
-        outOfStockProducts.push({
-          id: product.id,
-          name: product.name,
-          sku: product.sku,
-        });
-      } else if (product.inStock < orderItem.quantity) {
-        insufficientStockProducts.push({
-          id: product.id,
-          name: product.name,
-          sku: product.sku,
-          requested: orderItem.quantity,
-          available: product.inStock,
-        });
-      }
-
       const pricing = product.productPricing[0];
-      const { productPrice, productDiscount } = calculateFinalPrice(
-        pricing.dataValues
-      );
+      const { productPrice, productDiscount } = calculateFinalPrice(pricing.dataValues);
       discount += productDiscount;
       product.price = +productPrice;
       product.discount = +productDiscount;
       delete product.productPricing;
     });
-
-    // Return error if any products are out of stock
-    if (outOfStockProducts.length > 0) {
-      throw boom.badRequest(
-        `The following products are out of stock: ${outOfStockProducts
-          .map((p) => p.name)
-          .join(", ")}`
-      );
-    }
-
-    // Return error if any products have insufficient stock
-    if (insufficientStockProducts.length > 0) {
-      throw boom.badRequest(
-        `Insufficient stock for: ${insufficientStockProducts
-          .map(
-            (p) =>
-              `${p.name} (requested: ${p.requested}, available: ${p.available})`
-          )
-          .join(", ")}`
-      );
-    }
 
     if (products.length !== items.length) {
       throw boom.badRequest("One or more products are invalid");
@@ -227,28 +170,16 @@ const create = async (req, res, next) => {
         billingAddressSnapshot,
         subtotal,
         items: enrichedItems,
-        tax: Number(tax),
-        shippingCost: Number(shipping),
-        discount: Number(discount),
+        tax : Number(tax),
+        shippingCost : Number(shipping),
+        discount : Number(discount),
         currency,
-        total: Number(total),
+        total : Number(total),
       },
       { transaction }
     );
 
-    // Update product stock quantities
-    for (const item of items) {
-      const product = productMap[item.productId];
-      await Product.update(
-        { inStock: product.inStock - item.quantity, saleStock : item.quantity},
-        {
-          where: { id: item.productId },
-          transaction,
-        }
-      );
-    }
-
-    if (paymentMethod !== "cod") {
+    if(paymentMethod !== 'cod'){
       await Payment.create(
         {
           orderId: order.id,
@@ -274,20 +205,21 @@ const create = async (req, res, next) => {
     await transaction.commit();
 
     const orderDetails = await Order.findByPk(order.id, {
-      include: [{ model: Payment, as: "payments" }],
+        include: [{ model: Payment, as: "payments" }],
     });
 
-    return res
-      .status(200)
-      .json(message(true, "Order created successfully", orderDetails));
-  } catch (error) {
-    if (!transaction.finished) {
-      await transaction.rollback();
-    }
-    next(error);
+  return res.status(200).json(
+    message(true, "Order created successfully", orderDetails)
+  );
+} catch (error) {
+  if (!transaction.finished) {
+    await transaction.rollback();
   }
+  next(error);
+}
 };
 
+// Get order by ID with all relations
 const getOne = async (req, res, next) => {
   const orderId = req.params.id;
   const order = await Order.findByPk(orderId, {
@@ -311,15 +243,16 @@ const getOne = async (req, res, next) => {
   if (!order) {
     throw boom.notFound("Order not found");
   }
-  return res
-    .status(200)
-    .json(message(true, "Order created successfully", order));
+  return res.status(200).json(
+    message(true, "Order created successfully", order)
+  );
 };
 
+// get one by slug
 const getOneByOrderNumber = async (req, res, next) => {
   const orderId = req.params.orderId;
   const order = await Order.findOne({
-    where: { orderNumber: orderId },
+    where :{orderNumber : orderId},
     include: [
       {
         model: Payment,
@@ -340,11 +273,12 @@ const getOneByOrderNumber = async (req, res, next) => {
   if (!order) {
     throw boom.notFound("Order not found");
   }
-  return res
-    .status(200)
-    .json(message(true, "Order created successfully", order));
+  return res.status(200).json(
+    message(true, "Order created successfully", order)
+  );
 };
 
+// get all orders
 const getAll = async (req, res, next) => {
   try {
     const { offset = 0, pageSize = 10 } = req.query;
@@ -362,6 +296,7 @@ const getAll = async (req, res, next) => {
   }
 };
 
+// Update order
 const updateOne = async (req, res, next) => {
   const { id } = req.params;
   const { items, status, paymentMethod, email, ...bodyData } = req.body;
@@ -556,6 +491,7 @@ const updateOne = async (req, res, next) => {
   }
 };
 
+// Cancel order
 const updateStatus = async (req, res, next) => {
   const { orderId, status, reason = "" } = req.body;
   const transaction = await sequelize.transaction();
@@ -592,9 +528,8 @@ const updateStatus = async (req, res, next) => {
 
     await transaction.commit();
 
-    return res
-      .status(200)
-      .json(message(true, "Order status updated successfully", order));
+    return res.status(200).json(message(true, "Order status updated successfully", order));
+
   } catch (error) {
     if (!transaction.finished) {
       await transaction.rollback();
@@ -612,14 +547,10 @@ const updatePaymentStatus = async (req, res, next) => {
     if (!order) throw boom.notFound("Order not found");
 
     if (
-      ![ORDER_PAYMENT_STATUS.PAID, ORDER_PAYMENT_STATUS.REFUNDED].includes(
-        order.paymentStatus
-      ) &&
+      ![ORDER_PAYMENT_STATUS.PAID, ORDER_PAYMENT_STATUS.REFUNDED].includes(order.paymentStatus) &&
       status === "unpaid"
     ) {
-      throw boom.badRequest(
-        "Order payment status can't be change to " + status
-      );
+      throw boom.badRequest("Order payment status can't be change to " + status);
     }
 
     // Update order status
@@ -644,9 +575,7 @@ const updatePaymentStatus = async (req, res, next) => {
     await transaction.commit();
 
     const updatedOrder = await Order.findByPk(orderId);
-    return res
-      .status(200)
-      .json(message(true, "Payment status updated successfully", updatedOrder));
+    return res.status(200).json(message(true, "Payment status updated successfully", updatedOrder));
   } catch (error) {
     if (!transaction.finished) {
       await transaction.rollback();
@@ -884,99 +813,7 @@ const deleteOne = async (req, res, next) => {
   }
 };
 
-const reviewOrder = async (req, res, next) => {
-  try {
-    console.log(req.body)
-    const { items, shippingAddress } = req.body;
 
-    // Validate required fields
-    if (!items || !items.length) {
-      throw boom.badRequest("At least one order item is required");
-    }
-
-    if(!shippingAddress?.country) throw boom.badRequest("Country not found")
-
-    // Get currency based on country
-    const currency = CURRENCY_BY_COUNTRY[shippingAddress?.country] || 'USD'
-    
-
-    // Validate products and get pricing
-    const productIds = items.map((item) => item.productId);
-    const products = await Product.findAll({
-      where: { id: productIds },
-      attributes: ["id", "name", "sku", "inStock", "inStock"],
-      include: [{
-        model: ProductPricing,
-        as: "productPricing",
-        attributes: ["currency", "discountType", "discountValue", "basePrice", "finalPrice"],
-        where: { currency },
-        required: true
-      }]
-    });
-
-    // Check stock and enrich items with pricing
-    const outOfStockProducts = [];
-    const insufficientStockProducts = [];
-    let totalDiscount = 0;
-
-    const enrichedItems = items.map(item => {
-      const product = products.find(p => p.id === item.productId);
-      if (!product) {
-        throw boom.badRequest(`Invalid product ID: ${item.productId}`);
-      }
-
-      if (!product.inStock) {
-        outOfStockProducts.push(product);
-      } else if (product.inStock < item.quantity) {
-        insufficientStockProducts.push({
-          ...product.toJSON(),
-          requested: item.quantity,
-          available: product.inStock
-        });
-      }
-
-      const pricing = product.productPricing[0];
-      const { productPrice, productDiscount } = calculateFinalPrice(pricing.dataValues);
-      totalDiscount += productDiscount;
-
-      return {
-        ...item,
-        price: +productPrice,
-        discount: +productDiscount,
-        name: product.name,
-        sku: product.sku
-      };
-    });
-
-    // Handle stock errors
-    if (outOfStockProducts.length) {
-      throw boom.badRequest(`Products out of stock: ${outOfStockProducts.map(p => p.name).join(', ')}`);
-    }
-
-    if (insufficientStockProducts.length) {
-      throw boom.badRequest(`Insufficient stock for: ${insufficientStockProducts.map(p => 
-        `${p.name} (requested: ${p.requested}, available: ${p.available})`).join(', ')}`);
-    }
-
-    // Calculate totals
-    const subtotal = enrichedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const { shippingCost = 0, tax = 0, discount = 0 } = req.body;
-    const total = subtotal + tax + shippingCost - discount;
-
-    return res.status(200).json(message(true, "Order reviewed successfully", {
-      items: enrichedItems,
-      subtotal,
-      shippingCost,
-      tax,
-      discount,
-      total,
-      currency
-    }));
-
-  } catch (error) {
-    next(error);
-  }
-};
 
 module.exports = {
   create,
@@ -987,5 +824,4 @@ module.exports = {
   deleteOne,
   getOneByOrderNumber,
   updatePaymentStatus,
-  reviewOrder
 };

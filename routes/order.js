@@ -8,14 +8,13 @@ const {
     deleteOne,
     getOneByOrderNumber,
     updateStatus,
-    updatePaymentStatus
+    updatePaymentStatus,
+    reviewOrder
 } = require('../controllers/orders');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
 const Joi = require('joi');
 const { ORDER_STATUS, ORDER_PAYMENT_STATUS } = require('../constant/types')
-
-// Updated Joi validation schema
 
 const updateStatusSchema = Joi.object({
   orderId: Joi.string().uuid().required()
@@ -39,7 +38,6 @@ const updateStatusSchema = Joi.object({
   'any.invalid': 'Invalid status for the specified type'
 });
 
-
 const orderItemSchema = Joi.object({
   productId: Joi.string().uuid().required()
     .description('UUID of the product being ordered'),
@@ -53,9 +51,8 @@ const orderItemSchema = Joi.object({
     .description('Product SKU (snapshot)')
 }).oxor('price', 'productId')
   .with('price', ['name', 'sku']);
-
   
-  const addressSnapshotSchema = Joi.object({
+const addressSnapshotSchema = Joi.object({
     firstName: Joi.string().required().description('First name'),
     lastName: Joi.string().required().description('Last name'),
     addressLine1: Joi.string().required().description('Primary address line'),
@@ -67,7 +64,7 @@ const orderItemSchema = Joi.object({
       .description('Postal code'),
     phone: Joi.string().pattern(/^(?:\+?[1-9]|0)\d{1,14}$/).optional()
       .description('Phone number')
-  });
+});
   
   const addressValidationSchema = Joi.object({
     addressId: Joi.string().uuid()
@@ -120,6 +117,26 @@ const orderItemSchema = Joi.object({
     'any.invalid': 'Address snapshot type must match address type'
   });
   
+  const reviewValidationSchema = Joi.object({
+    items: Joi.array().items(Joi.object({
+      productId: Joi.string().uuid().required()
+        .description('UUID of the product'),
+      quantity: Joi.number().positive().required()
+        .description('Quantity of items')
+    })).min(1).required(),
+    paymentMethod: Joi.string().valid('cod', 'credit_card', 'paypal').default('cod')
+      .description('Payment method'),
+    email: Joi.string().email().required()
+      .description('Customer email'),
+    shippingAddress: addressSnapshotSchema.required(),
+    billingAddress: addressSnapshotSchema.required(),
+    shippingCost: Joi.number().optional(),
+    tax: Joi.number().optional(),
+    discount: Joi.number().optional(),
+    customerNotes: Joi.string().max(500).allow(null)
+  });
+  
+
 /**
  * @openapi
  * '/api/order':
@@ -654,6 +671,61 @@ router.patch('/status', authorize('orders', 'manage'), validateRequest(updateSta
 router.patch('/paymentStatus', authorize('orders', 'manage'), validateRequest(updateStatusSchema), updatePaymentStatus);
 
 
+/**
+ * @openapi
+ * '/api/order/review':
+ *  post:
+ *     tags:
+ *     - Order
+ *     summary: Review order details before creation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - items
+ *               - email
+ *               - shippingAddress
+ *               - billingAddress
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                       format: uuid
+ *                     quantity:
+ *                       type: number
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [cod, credit_card, paypal]
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               shippingAddress:
+ *                 $ref: '#/components/schemas/AddressSnapshot'
+ *               billingAddress:
+ *                 $ref: '#/components/schemas/AddressSnapshot'
+ *               shippingCost:
+ *                 type: number
+ *               tax:
+ *                 type: number
+ *               discount:
+ *                 type: number
+ *               customerNotes:
+ *                 type: string
+ *                 maxLength: 500
+ *     responses:
+ *       200:
+ *         description: Order review successful
+ *       400:
+ *         description: Validation error
+ */
+router.post('/review', authorize('orders', 'manage'), validateRequest(reviewValidationSchema), reviewOrder);
 
 
 module.exports = router;

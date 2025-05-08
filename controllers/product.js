@@ -1,5 +1,5 @@
 const { createSlug } = require("../utils/hook");
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const _ = require("lodash");
 const sequelize = require("../config/database");
 const boom = require("@hapi/boom");
@@ -541,23 +541,27 @@ const updateStatus = async (req, res, next) => {
 
 const productDropdown = async (req, res, next) => {
   try {
-    const { query } = req.query;
+    const { currency } = req.query;
 
-    // Safest ORM approach with field concatenation
+
+
     const products = await Product.findAll({
       attributes: [
-        ["id", "value"],
-        [sequelize.literal("sku || ' - ' || name"), "label"],
+      ["id", "value"],
+      [sequelize.literal("CONCAT(sku, ' - ', name)"), "label"],
       ],
-      where: query
-        ? {
-            name: { [Op.iLike]: `%${query}%` }, // Case-insensitive search
-          }
-        : {},
-      order: [["name", "ASC"]], // Good practice for dropdowns
+      include: [
+      {
+        model: ProductPricing,
+        as: "productPricing",
+        attributes: [], 
+        where: { currency: currency },
+        required: true,
+      },
+      ],
+      order: [["name", "ASC"]]
     });
 
-    // Already in correct format { value: id, label: "SKU - Name" }
     return res
       .status(200)
       .json(message(true, "Dropdown retrieved successfully", products));
@@ -768,7 +772,8 @@ const productList = async (req, res, next) => {
       });
     }
 
-    // Fetch products matching all conditions with pagination
+    filterConditions.push({ inStock: { [Op.gt]: 0 } });
+    
     const products = await Product.findAll({
       attributes: [
         "id",
@@ -807,8 +812,6 @@ const productList = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 const getProductDetail = async (req, res, next) => {
   try {
@@ -1001,8 +1004,9 @@ const searchProducts = async (req, res, next) => {
     const relatedProducts = await Product.findAll({
       where: {
         name: {
-          [Op.iLike]: `%${name}%`, // Case-insensitive partial match
+          [Op.iLike]: `%${name}%`,
         },
+        query :{ inStock :{ [Op.gt]: 0 }}
       },
       attributes: [
         "id",

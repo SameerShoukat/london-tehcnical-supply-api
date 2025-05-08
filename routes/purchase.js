@@ -1,28 +1,49 @@
-const express = require('express');
+const express = require("express");
 const Joi = require("joi");
 const router = express.Router();
-const {create,
-getAll,
-updateOne,
-getOne,
-deleteOne
-} = require('../controllers/purchase.js');
-const { authorize } = require('../middleware/auth');
-const validateRequest = require('../middleware/validation');
-const {PURCHASE_STATUS} = require("../models/products/purchase")
+const {
+  create,
+  getAll,
+  updateOne,
+  getOne,
+  deleteOne,
+} = require("../controllers/purchase.js");
+const { authorize } = require("../middleware/auth");
+const validateRequest = require("../middleware/validation");
+const { PURCHASE_STATUS } = require("../models/products/purchase");
 
 // Validation schema
-const SUPPORTED_CURRENCIES = ['USD', 'AED', 'GBP'];
+const SUPPORTED_CURRENCIES = ["USD", "AED", "GBP"];
 
 const purchaseSchema = Joi.object({
-    currency: Joi.string().required().valid(...SUPPORTED_CURRENCIES),
-    status: Joi.string().required().valid(...Object.values(PURCHASE_STATUS)),
-    quantity: Joi.number().integer().min(1).max(999999).required(),
-    costPrice: Joi.number().precision(2).min(0).required(),
-    vendorId: Joi.string().uuid().required(),
-    productId: Joi.string().uuid().required(),
+  currency: Joi.string()
+    .required()
+    .valid(...SUPPORTED_CURRENCIES),
+  status: Joi.string()
+    .required()
+    .valid(...Object.values(PURCHASE_STATUS)),
+  vendorId: Joi.string().uuid().required(),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        productId: Joi.string().uuid().required(),
+        quantity: Joi.number().integer().min(1).required(),
+        costPrice: Joi.number().precision(2).min(0).required(),
+      })
+    )
+    .min(1)
+    .required()
+    .messages({
+      "array.min": "Purchase must have at least one item",
+      "array.base": "Items must be an array",
+    }),
+  paymentType: Joi.string()
+    .valid("cash", "card", "bank_transfer", "cheque")
+    .optional(),
+  paymentInformation: Joi.string().optional(),
+  notes: Joi.string().optional(),
+  paidAt: Joi.date().optional(),
 });
-
 
 /**
  * @openapi
@@ -79,29 +100,29 @@ const purchaseSchema = Joi.object({
  *                         enum: [USD, AED, GBP]
  *                         description: Currency code
  *                         example: "USD"
- *                       quantity:
- *                         type: integer
- *                         minimum: 1
- *                         maximum: 999999
- *                         description: Purchase quantity
- *                         example: 100
- *                       costPrice:
- *                         type: number
- *                         format: float
- *                         minimum: 0
- *                         description: Cost price per unit
- *                         example: 10.99
- *                       totalAmount:
- *                         type: number
- *                         format: float
- *                         minimum: 0
- *                         description: Total purchase amount
- *                         example: 1099.00
- *                       productId:
- *                         type: string
- *                         format: uuid
- *                         description: Product identifier
- *                         example: "123e4567-e89b-12d3-a456-426614174000"
+ *                       items:
+ *                         type: array
+ *                         minItems: 1
+ *                         items:
+ *                           type: object
+ *                           required:
+ *                             - productId
+ *                             - quantity
+ *                             - costPrice
+ *                           properties:
+ *                             productId:
+ *                               type: string
+ *                               format: uuid
+ *                               example: "123e4567-e89b-12d3-a456-426614174000"
+ *                             quantity:
+ *                               type: integer
+ *                               minimum: 1
+ *                               example: 100
+ *                             costPrice:
+ *                               type: number
+ *                               format: float
+ *                               minimum: 0
+ *                               example: 10.99
  *                       userId:
  *                         type: string
  *                         format: uuid
@@ -150,7 +171,7 @@ const purchaseSchema = Joi.object({
  *       500:
  *         description: Internal Server Error
  */
-router.get('/', authorize('purchase', 'view'), getAll);
+router.get("/", authorize("purchase", "view"), getAll);
 
 /**
  * @openapi
@@ -194,29 +215,29 @@ router.get('/', authorize('purchase', 'view'), getAll);
  *                         enum: [USD, AED, GBP]
  *                         description: Currency code
  *                         example: "USD"
- *                       quantity:
- *                         type: integer
- *                         minimum: 1
- *                         maximum: 999999
- *                         description: Purchase quantity
- *                         example: 100
- *                       costPrice:
- *                         type: number
- *                         format: float
- *                         minimum: 0
- *                         description: Cost price per unit
- *                         example: 10.99
- *                       totalAmount:
- *                         type: number
- *                         format: float
- *                         minimum: 0
- *                         description: Total purchase amount
- *                         example: 1099.00
- *                       productId:
- *                         type: string
- *                         format: uuid
- *                         description: Product identifier
- *                         example: "123e4567-e89b-12d3-a456-426614174000"
+ *                       items:
+ *                         type: array
+ *                         minItems: 1
+ *                         items:
+ *                           type: object
+ *                           required:
+ *                             - productId
+ *                             - quantity
+ *                             - costPrice
+ *                           properties:
+ *                             productId:
+ *                               type: string
+ *                               format: uuid
+ *                               example: "123e4567-e89b-12d3-a456-426614174000"
+ *                             quantity:
+ *                               type: integer
+ *                               minimum: 1
+ *                               example: 100
+ *                             costPrice:
+ *                               type: number
+ *                               format: float
+ *                               minimum: 0
+ *                               example: 10.99
  *                       userId:
  *                         type: string
  *                         format: uuid
@@ -265,7 +286,7 @@ router.get('/', authorize('purchase', 'view'), getAll);
  *       500:
  *         description: Internal Server Error
  */
-router.get('/:id', authorize('purchase', 'view'), getOne);
+router.get("/:id", authorize("purchase", "view"), getOne);
 
 /**
  * @openapi
@@ -284,38 +305,48 @@ router.get('/:id', authorize('purchase', 'view'), getOne);
  *             type: object
  *             required:
  *               - currency
- *               - quantity
- *               - costPrice
+ *               - status
  *               - vendorId
- *               - productId
+ *               - items
  *             properties:
  *               currency:
  *                 type: string
  *                 enum: [USD, AED, GBP]
  *                 description: Must be USD, AED, or GBP
  *                 example: "USD"
- *               quantity:
- *                 type: integer
- *                 minimum: 1
- *                 maximum: 999999
- *                 description: Integer between 1 and 999999
- *                 example: 100
- *               costPrice:
- *                 type: number
- *                 format: float
- *                 minimum: 0
- *                 description: Decimal number greater than 0
- *                 example: 10.99
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, COMPLETED, CANCELLED]
+ *                 description: Purchase status
+ *                 example: "PENDING"
  *               vendorId:
  *                 type: string
  *                 format: uuid
- *                 description: Valid UUID of existing purchase
+ *                 description: Valid UUID of existing vendor
  *                 example: "123e4567-e89b-12d3-a456-426614174000"
- *               productId:
- *                 type: string
- *                 format: uuid
- *                 description: Valid UUID of existing product
- *                 example: "123e4567-e89b-12d3-a456-426614174000"
+ *               items:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - productId
+ *                     - quantity
+ *                     - costPrice
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "123e4567-e89b-12d3-a456-426614174000"
+ *                     quantity:
+ *                       type: integer
+ *                       minimum: 1
+ *                       example: 100
+ *                     costPrice:
+ *                       type: number
+ *                       format: float
+ *                       minimum: 0
+ *                       example: 10.99
  *     responses:
  *       200:
  *         description: Success
@@ -324,48 +355,103 @@ router.get('/:id', authorize('purchase', 'view'), getOne);
  *             schema:
  *               type: object
  *               properties:
- *                 currency:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
  *                   type: string
- *                   enum: [USD, AED, GBP]
- *                   description: Must be USD, AED, or GBP
- *                   example: "USD"
- *                 quantity:
- *                   type: integer
- *                   minimum: 1
- *                   maximum: 999999
- *                   description: Integer between 1 and 999999
- *                   example: 100
- *                 costPrice:
- *                   type: number
- *                   format: float
- *                   minimum: 0
- *                   description: Decimal number greater than 0
- *                   example: 10.99
- *                 totalAmount:
- *                   type: number
- *                   format: float
- *                   minimum: 0
- *                   description: Decimal number greater than 0
- *                   example: 1090
- *                 vendorId:
+ *                   example: "Purchases retrieved successfully"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                         example: "123e4567-e89b-12d3-a456-426614174000"
+ *                       currency:
+ *                         type: string
+ *                         enum: [USD, AED, GBP]
+ *                         description: Currency code
+ *                         example: "USD"
+ *                       items:
+ *                         type: array
+ *                         minItems: 1
+ *                         items:
+ *                           type: object
+ *                           required:
+ *                             - productId
+ *                             - quantity
+ *                             - costPrice
+ *                           properties:
+ *                             productId:
+ *                               type: string
+ *                               format: uuid
+ *                               example: "123e4567-e89b-12d3-a456-426614174000"
+ *                             quantity:
+ *                               type: integer
+ *                               minimum: 1
+ *                               example: 100
+ *                             costPrice:
+ *                               type: number
+ *                               format: float
+ *                               minimum: 0
+ *                               example: 10.99
+ *                       userId:
+ *                         type: string
+ *                         format: uuid
+ *                         description: User identifier
+ *                         example: "123e4567-e89b-12d3-a456-426614174000"
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-02-14T12:00:00Z"
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-02-14T12:00:00Z"
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 10
+ *                     totalItems:
+ *                       type: integer
+ *                       example: 100
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *       400:
+ *         description: Bad Request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
  *                   type: string
- *                   format: uuid
- *                   description: Valid UUID of existing purchase
- *                   example: "123e4567-e89b-12d3-a456-426614174000"
- *                 productId:
- *                   type: string
- *                   format: uuid
- *                   description: Valid UUID of existing product
- *                   example: "123e4567-e89b-12d3-a456-426614174000"
- *                 userId:
- *                   type: string
- *                   format: uuid
- *                   description: Valid UUID of existing user
- *                   example: "123e4567-e89b-12d3-a456-426614174000"
+ *                   example: "Invalid pagination parameters"
+ *       401:
+ *         description: Unauthorized
  *       404:
  *         description: Not Found
+ *       500:
+ *         description: Internal Server Error
  */
-router.post('/', authorize('purchase', 'manage'),  validateRequest(purchaseSchema), create);
+router.post(
+  "/",
+  authorize("purchase", "manage"),
+  validateRequest(purchaseSchema),
+  create
+);
 
 /**
  * @openapi
@@ -391,38 +477,48 @@ router.post('/', authorize('purchase', 'manage'),  validateRequest(purchaseSchem
  *             type: object
  *             required:
  *               - currency
- *               - quantity
- *               - costPrice
+ *               - status
  *               - vendorId
- *               - productId
+ *               - items
  *             properties:
  *               currency:
  *                 type: string
  *                 enum: [USD, AED, GBP]
  *                 description: Must be USD, AED, or GBP
  *                 example: "USD"
- *               quantity:
- *                 type: integer
- *                 minimum: 1
- *                 maximum: 999999
- *                 description: Integer between 1 and 999999
- *                 example: 100
- *               costPrice:
- *                 type: number
- *                 format: float
- *                 minimum: 0
- *                 description: Decimal number greater than 0
- *                 example: 10.99
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, COMPLETED, CANCELLED]
+ *                 description: Purchase status
+ *                 example: "PENDING"
  *               vendorId:
  *                 type: string
  *                 format: uuid
- *                 description: Valid UUID of existing purchase
+ *                 description: Valid UUID of existing vendor
  *                 example: "123e4567-e89b-12d3-a456-426614174000"
- *               productId:
- *                 type: string
- *                 format: uuid
- *                 description: Valid UUID of existing product
- *                 example: "123e4567-e89b-12d3-a456-426614174000"
+ *               items:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - productId
+ *                     - quantity
+ *                     - costPrice
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "123e4567-e89b-12d3-a456-426614174000"
+ *                     quantity:
+ *                       type: integer
+ *                       minimum: 1
+ *                       example: 100
+ *                     costPrice:
+ *                       type: number
+ *                       format: float
+ *                       minimum: 0
+ *                       example: 10.99
  *     responses:
  *       200:
  *         description: Success
@@ -431,48 +527,103 @@ router.post('/', authorize('purchase', 'manage'),  validateRequest(purchaseSchem
  *             schema:
  *               type: object
  *               properties:
- *                 currency:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
  *                   type: string
- *                   enum: [USD, AED, GBP]
- *                   description: Must be USD, AED, or GBP
- *                   example: "USD"
- *                 quantity:
- *                   type: integer
- *                   minimum: 1
- *                   maximum: 999999
- *                   description: Integer between 1 and 999999
- *                   example: 100
- *                 costPrice:
- *                   type: number
- *                   format: float
- *                   minimum: 0
- *                   description: Decimal number greater than 0
- *                   example: 10.99
- *                 totalAmount:
- *                   type: number
- *                   format: float
- *                   minimum: 0
- *                   description: Decimal number greater than 0
- *                   example: 1090
- *                 vendorId:
+ *                   example: "Purchases retrieved successfully"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                         example: "123e4567-e89b-12d3-a456-426614174000"
+ *                       currency:
+ *                         type: string
+ *                         enum: [USD, AED, GBP]
+ *                         description: Currency code
+ *                         example: "USD"
+ *                       items:
+ *                         type: array
+ *                         minItems: 1
+ *                         items:
+ *                           type: object
+ *                           required:
+ *                             - productId
+ *                             - quantity
+ *                             - costPrice
+ *                           properties:
+ *                             productId:
+ *                               type: string
+ *                               format: uuid
+ *                               example: "123e4567-e89b-12d3-a456-426614174000"
+ *                             quantity:
+ *                               type: integer
+ *                               minimum: 1
+ *                               example: 100
+ *                             costPrice:
+ *                               type: number
+ *                               format: float
+ *                               minimum: 0
+ *                               example: 10.99
+ *                       userId:
+ *                         type: string
+ *                         format: uuid
+ *                         description: User identifier
+ *                         example: "123e4567-e89b-12d3-a456-426614174000"
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-02-14T12:00:00Z"
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-02-14T12:00:00Z"
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 10
+ *                     totalItems:
+ *                       type: integer
+ *                       example: 100
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *       400:
+ *         description: Bad Request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
  *                   type: string
- *                   format: uuid
- *                   description: Valid UUID of existing purchase
- *                   example: "123e4567-e89b-12d3-a456-426614174000"
- *                 productId:
- *                   type: string
- *                   format: uuid
- *                   description: Valid UUID of existing product
- *                   example: "123e4567-e89b-12d3-a456-426614174000"
- *                 userId:
- *                   type: string
- *                   format: uuid
- *                   description: Valid UUID of existing user
- *                   example: "123e4567-e89b-12d3-a456-426614174000"
+ *                   example: "Invalid pagination parameters"
+ *       401:
+ *         description: Unauthorized
  *       404:
  *         description: Not Found
+ *       500:
+ *         description: Internal Server Error
  */
-router.put('/:id', authorize("purchase", "manage"),   validateRequest(purchaseSchema), updateOne);
+router.put(
+  "/:id",
+  authorize("purchase", "manage"),
+  validateRequest(purchaseSchema),
+  updateOne
+);
 
 /**
  * @openapi
@@ -496,6 +647,6 @@ router.put('/:id', authorize("purchase", "manage"),   validateRequest(purchaseSc
  *       404:
  *         description: Not Found
  */
-router.delete('/:id', authorize("purchase", "delete"), deleteOne);
+router.delete("/:id", authorize("purchase", "delete"), deleteOne);
 
 module.exports = router;

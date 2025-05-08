@@ -2,7 +2,6 @@ const _ = require("lodash");
 const boom = require("@hapi/boom");
 const { message } = require("../utils/hook");
 const {Purchase} = require('../models/products/purchase');
-const {Product} = require('../models/products');
 const Vendor = require('../models/vendor');
 const User = require('../models/users');
 
@@ -35,11 +34,6 @@ const getAll = async (req, res, next) => {
     const rows = await Purchase.findAll({
       include: [
         {
-          model: Product,
-          as: 'product',
-          attributes: ['id', 'name', 'sku'],
-        },
-        {
           model: Vendor,
           as: 'vendor',
           attributes: ['id', 'email'],
@@ -68,10 +62,6 @@ const getOne = async (req, res, next) => {
               model: User,
               as : 'user',
               attributes: ['id', 'firstName', 'lastName', 'email']
-            },
-            {
-                model: Product,
-                as : 'product',
             },
             {
                 model: Vendor,

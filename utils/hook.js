@@ -60,5 +60,7 @@ function generatePassword(length = 12) {
     return password;
   }
 
+  
+
 
 module.exports = {createSlug, message, calculateFinalPrice, generatePassword}

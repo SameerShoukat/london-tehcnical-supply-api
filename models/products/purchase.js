@@ -1,219 +1,298 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../../config/database');
-const User = require('../users');
-const {Product} = require('./index');
+const { DataTypes } = require("sequelize");
+const sequelize = require("../../config/database");
+const User = require("../users");
+const { Product } = require("./index");
 const Vendor = require("../vendor");
 const _ = require("lodash");
 const boom = require("@hapi/boom");
 
 const PURCHASE_STATUS = {
-  PENDING: 'pending',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
+  PENDING: "pending",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
 };
 
-const SUPPORTED_CURRENCIES = ['USD', 'AED', 'GBP'];
+const SUPPORTED_CURRENCIES = ["USD", "AED", "GBP"];
 
-const Purchase = sequelize.define('Purchase', {
+const Purchase = sequelize.define(
+  "Purchase",
+  {
     id: {
-        type: DataTypes.UUID, 
-        primaryKey: true,
-        defaultValue: DataTypes.UUIDV4
+      type: DataTypes.UUID,
+      primaryKey: true,
+      defaultValue: DataTypes.UUIDV4,
+    },
+    invoiceNumber: {
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     currency: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        validate: {
-          isIn: [SUPPORTED_CURRENCIES]
-        }
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isIn: [SUPPORTED_CURRENCIES],
+      },
     },
-    quantity: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        validate: { 
-          min: 1,
-          max: 999999 // Added max validation
-        }
+    subTotal: {
+      type: DataTypes.DECIMAL(12, 2),
+      validate: {
+        min: 0,
+      },
     },
-    costPrice: {
-        type: DataTypes.DECIMAL(12, 2),
-        allowNull: false,
-        validate: {
-          min: 0
-        }
+    discount: {
+      type: DataTypes.DECIMAL(12, 2),
+      defaultValue: 0,
+      validate: {
+        min: 0,
+      },
+    },
+    tax: {
+      type: DataTypes.DECIMAL(12, 2),
+      defaultValue: 0,
+      validate: {
+        min: 0,
+      },
+    },
+    shipping: {
+      type: DataTypes.DECIMAL(12, 2),
+      defaultValue: 0,
+      validate: {
+        min: 0,
+      },
     },
     totalAmount: {
-        type: DataTypes.DECIMAL(12, 2),  // Changed to 12,2 for consistency
-        allowNull: false,
-        validate: {
-          min: 0,
-          isValidTotal(value) {
-            const calculated = parseFloat((this.quantity * this.costPrice).toFixed(2));
-            if (parseFloat(value) !== calculated) {
-              throw boom.badImplementation('Total amount must equal quantity * costPrice');
-            }
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      validate: {
+        min: 0,
+        isValidTotal(value) {
+          const calculated = parseFloat(
+            (this.subTotal - this.discount + this.tax + this.shipping).toFixed(
+              2
+            )
+          );
+          if (parseFloat(value) !== calculated) {
+            throw boom.badImplementation(
+              "Total amount must equal subTotal - discount + tax + shipping"
+            );
           }
-        }
+        },
+      },
     },
     status: {
-        type: DataTypes.STRING,
-        defaultValue: PURCHASE_STATUS.PENDING,
-        validate: {
-          isIn: [Object.values(PURCHASE_STATUS)]
-        }
+      type: DataTypes.STRING,
+      defaultValue: PURCHASE_STATUS.PENDING,
+      validate: {
+        isIn: [Object.values(PURCHASE_STATUS)],
+      },
     },
     vendorId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: Vendor,
-            key: 'id'
-        }
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: Vendor,
+        key: "id",
+      },
     },
-    productId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: Product,
-            key: 'id'
-        }
+    items: {
+      type: DataTypes.JSON,
+      validate: {
+        notEmpty: true,
+        isValidItems(value) {
+          if (!Array.isArray(value) || value.length === 0) {
+            throw new Error("Purchase must have at least one item");
+          }
+          for (const { productId, quantity, costPrice } of value) {
+            if (!productId || quantity < 1 || costPrice < 0) {
+              throw new Error(
+                "Each item needs productId, quantity ≥1, costPrice ≥0"
+              );
+            }
+          }
+        },
+      },
+    },
+    paymentType: {
+      type: DataTypes.STRING,
+      validate: {
+        isIn: [["cash", "card", "bank_transfer", "cheque"]],
+      },
+    },
+    paymentInformation: {
+      type: DataTypes.STRING,
+    },
+    notes: {
+      type: DataTypes.STRING,
+    },
+    paidAt: {
+      type: DataTypes.DATE,
     },
     userId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: User,
-            key: 'id'
-        }
-    }
-}, {
-    tableName: 'purchases', 
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: User,
+        key: "id",
+      },
+    },
+  },
+  {
+    tableName: "purchases",
     timestamps: true,
-    indexes: [ 
-      { fields: ['status'] },
-      { fields: ['vendorId'] },
-      { fields: ['productId'] },
-      { fields: ['userId'] }
+    indexes: [
+      { fields: ["status"] },
+      { fields: ["vendorId"] },
+      { fields: ["userId"] },
     ],
     hooks: {
-        beforeValidate: (purchase) => {
-          if (purchase.quantity && purchase.costPrice) {
-            purchase.totalAmount = parseFloat((purchase.quantity * purchase.costPrice).toFixed(2));
-          }
-        },
-        beforeCreate: async (purchase) => {
-          const product = await Product.findByPk(purchase.productId);
-          if (!product) throw boom.badRequest('Product not found');
-        },
-        beforeUpdate: async (purchase) => {
-          const product = await Product.findByPk(purchase.productId);
-          if (!product) throw boom.badRequest('Product not found');
-        },
-        afterCreate: async (purchase) => {
-          if (purchase.status !== PURCHASE_STATUS.COMPLETED) return;
-          await updateProductStock(purchase, null, null, 'add');
-        },
-        afterUpdate: async (purchase) => {
-          if (purchase.changed('status') || purchase.changed('quantity')) {
-            const previousStatus = purchase.previous('status');
-            const previousQuantity = purchase.previous('quantity');
-            const previousProductId = purchase.previous('productId');
+      beforeValidate: (purchase) => {
+        let sub = 0;
+        for (const { quantity, costPrice } of purchase.items) {
+          sub += quantity * costPrice;
+        }
+        purchase.subTotal = sub;
+        purchase.totalAmount = parseFloat(
+          (
+            sub -
+            ++purchase.discount +
+            +purchase.tax +
+            +purchase.shipping
+          ).toFixed(2)
+        );
+      },
+      beforeSave: async (purchase) => {
+        const enriched = [];
+        for (item of purchase.items) {
+          const product = await Product.findByPk(item.productId);
+          if (!product)
+            throw boom.notFound(`Product ${item.productId} not found`);
 
-            if (purchase.changed('productId')) {
-              // Subtract quantity from previous product if its status was completed
-              if (previousStatus === PURCHASE_STATUS.COMPLETED) {
-                const previousProduct = await Product.findByPk(previousProductId);
-                if (previousProduct) {
-                  let newStock = Number(previousProduct.inStock) - Number(previousQuantity);
-                  if (newStock < 0) {
-                    throw boom.badImplementation('Stock cannot be negative');
-                  }
-                  await previousProduct.update({ 
-                    inStock: newStock,
-                    version: previousProduct.version + 1
-                  });
-                }
-              }
-            }
+          enriched.push({
+            ...item,
+            total: +item.costPrice * +item.quantity,
+            name: product.name,
+            sku: product.sku,
+          });
+        }
+        purchase.setDataValue("items", enriched);
+      },
+      beforeCreate: async (product) => {
+        product.invoiceNumber =
+          "LTS-" + Math.floor(1000 + Math.random() * 9000);
+      },
+      afterCreate: async (purchase) => {
+        if (purchase.status !== PURCHASE_STATUS.COMPLETED) return;
+        for (const item of purchase.items) {
+          await updateProductStock(
+            item.productId,
+            item.quantity,
+            null,
+            null,
+            "add"
+          );
+        }
+      },
+      afterUpdate: async (purchase) => {
+        const prev = purchase.previous("items");
+        const prevStatus = purchase.previous("status");
+        const newStatus = purchase.status;
 
-            // Only update stock if there's an actual change that impacts inventory
-            if (purchase.status === PURCHASE_STATUS.COMPLETED || 
-                previousStatus === PURCHASE_STATUS.COMPLETED) {
-              await updateProductStock(purchase, previousQuantity, previousStatus, 'update');
-            }
-          }
-        },
-        afterDestroy: async (purchase) => {
-          if (purchase.status === PURCHASE_STATUS.COMPLETED) {
-            await updateProductStock(purchase, null, null, 'destroy');
+        const oldMap = new Map(prev.map((i) => [i.productId, i]));
+        const newMap = new Map(purchase.items.map((i) => [i.productId, i]));
+
+        for (const [pid, oldItem] of oldMap) {
+          if (!newMap.has(pid) && prevStatus === PURCHASE_STATUS.COMPLETED) {
+            await updateProductStock(
+              pid,
+              oldItem.quantity,
+              prevStatus,
+              "destroy"
+            );
           }
         }
-    }
-});
-// Example payload
 
-// Improved helper function with error handling
-const updateProductStock = async (purchase, previousQuantity, previousStatus, action) => {
-  try {
-      const product = await Product.findByPk(purchase.productId);
-      if (!product){
-        if(action === 'destroy') return true;
-          throw boom.notFound("Product not found")
+        for (const [pid, newItem] of newMap) {
+          if (!oldMap.has(pid) && newStatus === PURCHASE_STATUS.COMPLETED) {
+            await updateProductStock(pid, newItem.quantity, prevStatus, "add");
+          }
         }
-      
-      let newStock =  Number(product.inStock); // Start with current stock
-      
-      if (action === 'update') {
-          // Case 1: From not-completed to completed (add new quantity)
-          if (purchase.status === PURCHASE_STATUS.COMPLETED && 
-              previousStatus !== PURCHASE_STATUS.COMPLETED) {
-              newStock +=  Number(purchase.quantity);
+
+        for (const [pid, newItem] of newMap) {
+          if (oldMap.has(pid)) {
+            const oldItem = oldMap.get(pid);
+            // quantity changed
+            if (
+              newItem.quantity !== oldItem.quantity ||
+              newStatus !== prevStatus
+            ) {
+              await updateProductStock(
+                pid,
+                newItem.quantity,
+                prevStatus,
+                "update",
+                oldItem.quantity
+              );
+            }
           }
-          // Case 2: From completed to not-completed (remove quantity)
-          else if (previousStatus === PURCHASE_STATUS.COMPLETED && 
-                  purchase.status !== PURCHASE_STATUS.COMPLETED) {
-              newStock -= Number(previousQuantity);
+        }
+      },
+      afterDestroy: async (purchase) => {
+        if (purchase.status === PURCHASE_STATUS.COMPLETED) {
+          for (const item of purchase.items) {
+            await updateProductStock(
+              item.productId,
+              item.quantity,
+              null,
+              "destroy"
+            );
           }
-          // Case 3: Remained completed but quantity changed
-          else if (purchase.status === PURCHASE_STATUS.COMPLETED && 
-                  previousStatus === PURCHASE_STATUS.COMPLETED && 
-                  previousQuantity !== purchase.quantity) {
-              // Remove old quantity, add new quantity
-              newStock = newStock - +previousQuantity + +purchase.quantity;
-          }
-      }
-      else if (action === 'add') {
-          newStock += Number(purchase.quantity);
-      }
-      else if (action === 'destroy') {
-          newStock -= Number(purchase.quantity);
-      }
-      
-      console.log('New stock:', newStock); // For debugging
-
-      if (newStock < 0) {
-          throw boom.badImplementation('Stock cannot be negative');
-      }
-
-
-
-      await product.update({ 
-          inStock: newStock,
-          version: product.version + 1
-      });
-  } catch (error) {
-      console.error('Error updating product stock:', error);
-      throw boom.badRequest(error.message);
+        }
+      },
+    },
   }
+);
+async function updateProductStock(
+  productId,
+  quantity,
+  previousStatus,
+  action,
+  previousQuantity = 0
+) {
+  const product = await Product.findByPk(productId);
+  if (!product) throw boom.notFound("Product not found");
+
+  let delta = 0;
+  if (action === "add") {
+    delta = quantity;
+  } else if (action === "destroy") {
+    delta = -quantity;
+  } else if (action === "update") {
+    if (
+      previousStatus !== PURCHASE_STATUS.COMPLETED &&
+      action === "update" &&
+      product.status === PURCHASE_STATUS.COMPLETED
+    ) {
+      delta = quantity;
+    } else if (
+      previousStatus === PURCHASE_STATUS.COMPLETED &&
+      product.status !== PURCHASE_STATUS.COMPLETED
+    ) {
+      delta = -previousQuantity;
+    } else {
+      delta = quantity - previousQuantity;
+    }
+  }
+
+  const newStock = product.inStock + delta;
+  if (newStock < 0) throw boom.badImplementation("Stock cannot be negative");
+
+  await product.update({ inStock: newStock, version: product.version + 1 });
 }
-// Define associations
-Purchase.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(Purchase, { foreignKey: 'userId'});
 
-Purchase.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
-Product.hasMany(Purchase, { foreignKey: 'productId'});
+Purchase.belongsTo(User, { foreignKey: "userId", as: "user" });
+User.hasMany(Purchase, { foreignKey: "userId" });
 
-Purchase.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendor' });
-Vendor.hasMany(Purchase, { foreignKey: 'vendorId'}); 
+Purchase.belongsTo(Vendor, { foreignKey: "vendorId", as: "vendor" });
+Vendor.hasMany(Purchase, { foreignKey: "vendorId" });
 
 module.exports = { Purchase, PURCHASE_STATUS };

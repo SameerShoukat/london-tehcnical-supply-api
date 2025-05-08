@@ -31,6 +31,12 @@ const CURRENCY = {
     GBP: 'GBP'
 };
 
+const CURRENCY_BY_COUNTRY = {
+    USD: 'USD',
+    AED: 'AED',
+    GBP: 'GBP'
+};
+
 const ADDRESS_TYPE = { 
     BILLING : 'billing', 
     SHIPPING : 'shipping',
@@ -42,6 +48,7 @@ module.exports={
     PAYMENT_STATUS,
     ORDER_PAYMENT_STATUS,
     CURRENCY,
-    ADDRESS_TYPE
+    ADDRESS_TYPE,
+    CURRENCY_BY_COUNTRY
 }
 
