@@ -14,7 +14,7 @@ const ProductAttribute = require("../models/products/product_attribute");
 const ProductPricing = require("../models/products/pricing");
 const Attribute = require("../models/products/attributes");
 const ProductCodes = require("../models/products/codes");
-const ProductTags = require("../models/products/tags")
+const ProductTags = require("../models/products/tags");
 const Brand = require("../models/products/brand");
 const VehicleType = require("../models/products/vehicleType");
 
@@ -57,10 +57,13 @@ const create = async (req, res, next) => {
 
     const payload = {
       ...payloadData,
-      catalogId: payloadData.catalogId || null,
-      catId: payloadData.catId || null,
-      subCategoryId: payloadData.subCategoryId || null,
-      websiteId: payloadData.websiteId || null,
+      catalogId: payloadData?.catalogId || null,
+      catId: payloadData?.catId || null,
+      subCategoryId: payloadData?.subCategoryId || null,
+      websiteId: payloadData?.websiteId || null,
+      vehicleTypeId: payloadData?.vehicleTypeId || null,
+      brandId: payloadData?.brandId || null,
+      productCode: payloadData?.productCode || null,
     };
 
     payload.userId = req.user.id;
@@ -351,7 +354,6 @@ const getAll = async (req, res, next) => {
 
 const getOne = async (req, res, next) => {
   try {
-
     const product = await Product.findByPk(req.params.id, {
       include: [
         {
@@ -394,7 +396,16 @@ const updateOne = async (req, res, next) => {
         ? JSON.parse(req.body.data)
         : req.body.data;
 
-    const payload = { ...rawData };
+    const payload = {
+      ...rawData,
+      catalogId: rawData?.catalogId || null,
+      catId: rawData?.catId || null,
+      subCategoryId: rawData?.subCategoryId || null,
+      websiteId: rawData?.websiteId || null,
+      vehicleTypeId: rawData?.vehicleTypeId || null,
+      brandId: rawData?.brandId || null,
+      productCode: rawData?.productCode || null,
+    };
 
     const existingProduct = await Product.findByPk(id);
     if (!existingProduct) {
@@ -414,7 +425,7 @@ const updateOne = async (req, res, next) => {
         id: { [Op.ne]: id },
       },
     });
-    
+
     if (conflict) {
       throw boom.conflict(
         "Another product with this name (or SKU) already exists"
@@ -422,11 +433,9 @@ const updateOne = async (req, res, next) => {
     }
 
     if (req.files?.length > 0) {
-      const newImages = req.files.map(f => f.path);
+      const newImages = req.files.map((f) => f.path);
       payload.images = [...payload.images, ...newImages];
     }
-
-    
 
     // 5) Update the product row
     await existingProduct.update(payload, { transaction });
@@ -542,25 +551,35 @@ const updateStatus = async (req, res, next) => {
 const productDropdown = async (req, res, next) => {
   try {
     const { currency } = req.query;
+    let products;
 
-
-
-    const products = await Product.findAll({
-      attributes: [
+    const baseAttributes = [
       ["id", "value"],
       [sequelize.literal("CONCAT(sku, ' - ', name)"), "label"],
-      ],
-      include: [
-      {
-        model: ProductPricing,
-        as: "productPricing",
-        attributes: [], 
-        where: { currency: currency },
-        required: true,
-      },
-      ],
-      order: [["name", "ASC"]]
-    });
+    ];
+
+    const orderBy = [["name", "ASC"]];
+
+    if (currency) {
+      products = await Product.findAll({
+        attributes: baseAttributes,
+        include: [
+          {
+            model: ProductPricing,
+            as: "productPricing",
+            attributes: [],
+            where: { currency },
+            required: true, 
+          },
+        ],
+        order: orderBy,
+      });
+    } else {
+      products = await Product.findAll({
+        attributes: baseAttributes,
+        order: orderBy,
+      });
+    }
 
     return res
       .status(200)
@@ -569,6 +588,7 @@ const productDropdown = async (req, res, next) => {
     next(error);
   }
 };
+
 
 const assignTag = async (req, res, next) => {
   try {
@@ -585,10 +605,11 @@ const assignTag = async (req, res, next) => {
 
     const tags = await ProductTags.findAll({
       where: {
-        slug: { [Op.in]: tagsToAdd }
-      }
+        slug: { [Op.in]: tagsToAdd },
+      },
     });
-    if(tags.length !== tagsToAdd.length) throw boom.badRequest("Some tags are invalid")
+    if (tags.length !== tagsToAdd.length)
+      throw boom.badRequest("Some tags are invalid");
 
     // Get current tags and filter out duplicates
     // const currentTags = product.tags || [];
@@ -659,39 +680,25 @@ const attributeList = async (req, res, next) => {
     const { attributeName } = req.query;
     if (!attributeName)
       throw boom.badRequest("Attribute is require to access this endpoint");
-      if(attributeName === 'brand') {
-        const results = await Brand.findAll({
-          attributes: [
-            ["id", "value"],
-            "name",
-            "productCount",
-            "slug"
-          ],
-          order: [["name", "ASC"]],
-        });
-        res
+    if (attributeName === "brand") {
+      const results = await Brand.findAll({
+        attributes: [["id", "value"], "name", "productCount", "slug"],
+        order: [["name", "ASC"]],
+      });
+      res
         .status(200)
-        .json(message(true, "Attribute retrieved successfully", results)); 
-      }
-      else if(attributeName === 'vehicle_type') {
-        const results = await VehicleType.findAll({
-          attributes: [
-            ["id", "value"],
-            "name",
-            "productCount",
-            "slug"
-          ],
-          order: [["name", "ASC"]],
-        });
-        res
+        .json(message(true, "Attribute retrieved successfully", results));
+    } else if (attributeName === "vehicle_type") {
+      const results = await VehicleType.findAll({
+        attributes: [["id", "value"], "name", "productCount", "slug"],
+        order: [["name", "ASC"]],
+      });
+      res
         .status(200)
-        .json(message(true, "Attribute retrieved successfully", results)); 
-
-      }
-      else{
-        res.status(400).json(message(false, "Invalid attribute name"));
-      }
-
+        .json(message(true, "Attribute retrieved successfully", results));
+    } else {
+      res.status(400).json(message(false, "Invalid attribute name"));
+    }
   } catch (error) {
     next(error);
   }
@@ -704,7 +711,7 @@ const productList = async (req, res, next) => {
       req.body;
 
     const currency = req?.meta?.currency;
-    
+
     const filterConditions = [];
 
     // Categories filter
@@ -742,7 +749,7 @@ const productList = async (req, res, next) => {
         where: { slug: { [Op.in]: brands } },
         attributes: ["id"],
       }).then((brandsData) => brandsData.map((brand) => brand.id));
-      
+
       if (brandIds.length > 0) {
         filterConditions.push({ brandId: { [Op.in]: brandIds } });
       }
@@ -754,11 +761,11 @@ const productList = async (req, res, next) => {
         where: { slug: { [Op.in]: vehicle_type } },
         attributes: ["id"],
       }).then((typesData) => typesData.map((type) => type.id));
-      
+
       if (vehicleTypeIds.length > 0) {
         filterConditions.push({ vehicleTypeId: { [Op.in]: vehicleTypeIds } });
       }
-}
+    }
 
     if (websiteId) {
       filterConditions.push({ websiteId: { [Op.overlap]: [websiteId] } });
@@ -773,7 +780,7 @@ const productList = async (req, res, next) => {
     }
 
     filterConditions.push({ inStock: { [Op.gt]: 0 } });
-    
+
     const products = await Product.findAll({
       attributes: [
         "id",
@@ -825,63 +832,63 @@ const getProductDetail = async (req, res, next) => {
     const product = await Product.findOne({
       where: { slug },
       attributes: [
-      "id",
-      "sku",
-      "name", 
-      "slug",
-      "images",
-      "status",
-      "tags",
-      "inStock",
-      "description",
-      "productCode",
+        "id",
+        "sku",
+        "name",
+        "slug",
+        "images",
+        "status",
+        "tags",
+        "inStock",
+        "description",
+        "productCode",
       ],
       include: [
-      {
-        model: ProductPricing,
-        as: "productPricing",
-        attributes: [
-        "currency",
-        "discountType", 
-        "discountValue",
-        "basePrice",
-        "finalPrice",
-        ],
-        where: { currency },
-        required: true,
-      },
-      {
-        model: ProductAttribute,
-        as: "productAttributes",
-        attributes: ["value"],
-        include: [
         {
-          model: Attribute,
-          as: "attribute", 
-          attributes: ["name"],
+          model: ProductPricing,
+          as: "productPricing",
+          attributes: [
+            "currency",
+            "discountType",
+            "discountValue",
+            "basePrice",
+            "finalPrice",
+          ],
+          where: { currency },
+          required: true,
         },
-        ],
-      },
-      {
-        model: Category,
-        as: "category",
-        attributes: ["name", "slug"],
-      },
-      {
-        model: SubCategory,
-        as: "subCategory",
-        attributes: ["name", "slug"], 
-      },
-      {
-        model: Brand,
-        as: "brand",
-        attributes: ["name", "slug"]
-      },
-      {
-        model: VehicleType,
-        as: "vehicleType",
-        attributes: ["name", "slug"]
-      }
+        {
+          model: ProductAttribute,
+          as: "productAttributes",
+          attributes: ["value"],
+          include: [
+            {
+              model: Attribute,
+              as: "attribute",
+              attributes: ["name"],
+            },
+          ],
+        },
+        {
+          model: Category,
+          as: "category",
+          attributes: ["name", "slug"],
+        },
+        {
+          model: SubCategory,
+          as: "subCategory",
+          attributes: ["name", "slug"],
+        },
+        {
+          model: Brand,
+          as: "brand",
+          attributes: ["name", "slug"],
+        },
+        {
+          model: VehicleType,
+          as: "vehicleType",
+          attributes: ["name", "slug"],
+        },
       ],
     });
 
@@ -978,7 +985,7 @@ const getProductInformation = async (req, res, next) => {
           ],
           where: { currency },
           required: true,
-        }
+        },
       ],
     });
 
@@ -998,7 +1005,7 @@ const searchProducts = async (req, res, next) => {
     const { name } = req.params;
 
     const currency = req?.meta?.currency;
-    
+
     const { Op } = require("sequelize");
 
     const relatedProducts = await Product.findAll({
@@ -1006,7 +1013,7 @@ const searchProducts = async (req, res, next) => {
         name: {
           [Op.iLike]: `%${name}%`,
         },
-        query :{ inStock :{ [Op.gt]: 0 }}
+        query: { inStock: { [Op.gt]: 0 } },
       },
       attributes: [
         "id",
@@ -1045,6 +1052,106 @@ const searchProducts = async (req, res, next) => {
   }
 };
 
+
+
+
+// analytics of products
+async function getProductStockAnalytics(websiteId = null) {
+  const whereClause = {};
+  if (websiteId) {
+    whereClause.websiteId = { [Op.contains]: [websiteId] };
+  }
+
+  // Check if products exist first
+  const count = await Product.count({ where: whereClause });
+  
+  if (count === 0) {
+    return {
+      total_products: 0,
+      total_sale_stock: 0,
+      total_in_stock: 0,
+      unique_tags_count: 0,
+    };
+  }
+
+  // Get all tags in a separate query to avoid ARRAY_AGG issue
+  let uniqueTags = [];
+  try {
+    const products = await Product.findAll({
+      where: whereClause,
+      attributes: ['tags'],
+      raw: true
+    });
+    
+    // Collect all tags, flatten array, and remove duplicates
+    const allTags = products.flatMap(p => p.tags || []).filter(Boolean);
+    uniqueTags = [...new Set(allTags)];
+  } catch (error) {
+    console.error("Error fetching tags:", error);
+  }
+
+  // Get aggregate statistics
+  const result = await Product.findAll({
+    where: whereClause,
+    attributes: [
+      [sequelize.fn("COUNT", sequelize.col("id")), "total_products"],
+      [sequelize.fn("SUM", sequelize.col("saleStock")), "total_sale_stock"],
+      [sequelize.fn("SUM", sequelize.col("inStock")), "total_in_stock"],
+    ],
+    raw: true,
+  });
+
+  return {
+    total_products: parseInt(result[0]?.total_products || 0),
+    total_sale_stock: parseInt(result[0]?.total_sale_stock || 0),
+    total_in_stock: parseInt(result[0]?.total_in_stock || 0),
+    unique_tags_count: uniqueTags.length,
+  };
+}
+
+async function getProductCountByCurrency(websiteId = null) {
+  const productWhere = {};
+  if (websiteId) {
+    productWhere.websiteId = { [Op.contains]: [websiteId] };
+  }
+
+  // Check if any products exist first
+  const productCount = await Product.count({ where: productWhere });
+  if (productCount === 0) return {};
+  
+  // Get product IDs
+  const productIds = await Product.findAll({
+    where: productWhere,
+    attributes: ["id"],
+    raw: true,
+  });
+
+  const ids = productIds.map(p => p.id);
+  if (ids.length === 0) return {};
+
+  try {
+    const currencyCounts = await ProductPricing.findAll({
+      where: {
+        productId: { [Op.in]: ids },
+      },
+      attributes: [
+        "currency",
+        [sequelize.fn("COUNT", sequelize.col("currency")), "count"],
+      ],
+      group: ["currency"],
+      raw: true,
+    });
+
+    // Convert directly to object without loop
+    return Object.fromEntries(
+      currencyCounts.map(c => [c.currency, Number(c.count)])
+    );
+  } catch (error) {
+    console.error("Error in getProductCountByCurrency:", error);
+    return {};
+  }
+}
+
 module.exports = {
   create,
   getAll,
@@ -1062,5 +1169,5 @@ module.exports = {
   getSoftDeleted,
   restoreProducts,
   copyProduct,
-  getProductInformation
+  getProductInformation,
 };

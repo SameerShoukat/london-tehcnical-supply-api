@@ -11,6 +11,8 @@ const ORDER_STATUS = {
 
 const PAYMENT_STATUS = {
     PENDING: 'pending',
+    PAID:'paid',
+    UNPAID:'unpaid',
     CAPTURED: 'captured',
     PROCESSING: 'processing',
     FAILED : 'failed',

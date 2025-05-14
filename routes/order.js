@@ -9,7 +9,8 @@ const {
     getOneByOrderNumber,
     updateStatus,
     updatePaymentStatus,
-    reviewOrder
+    reviewOrder,
+    createManualOrder
 } = require('../controllers/orders');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
@@ -129,11 +130,14 @@ const addressSnapshotSchema = Joi.object({
     email: Joi.string().email().required()
       .description('Customer email'),
     shippingAddress: addressSnapshotSchema.required(),
-    billingAddress: addressSnapshotSchema.required(),
-    shippingCost: Joi.number().optional(),
-    tax: Joi.number().optional(),
-    discount: Joi.number().optional(),
-    customerNotes: Joi.string().max(500).allow(null)
+    billingAddress: addressSnapshotSchema.optional(),
+    shippingCost: Joi.number().optional().allow('', null, 0),
+    tax: Joi.number().optional().allow('', null, 0),
+    discount: Joi.number().optional().allow('', null, 0),
+    customerNotes: Joi.string().max(500).allow('', null),
+    currency: Joi.string().optional(),
+    paymentStatus: Joi.string().valid('paid', 'unpaid'),
+    sameAsShipping: Joi.boolean().optional()
   });
   
 
@@ -726,6 +730,64 @@ router.patch('/paymentStatus', authorize('orders', 'manage'), validateRequest(up
  *         description: Validation error
  */
 router.post('/review', authorize('orders', 'manage'), validateRequest(reviewValidationSchema), reviewOrder);
+
+
+/**
+ * @openapi
+ * '/api/order/manual':
+ *  post:
+ *     tags:
+ *     - Order
+ *     summary: Create a manual order
+ *     security:
+ *     - Bearer: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - items
+ *               - email
+ *               - shippingAddress
+ *               - currency
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                       format: uuid
+ *                     quantity:
+ *                       type: integer
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               currency:
+ *                 type: string
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [cod, credit_card, paypal]
+ *               shippingCost:
+ *                 type: number
+ *               tax:
+ *                 type: number
+ *               discount:
+ *                 type: number
+ *               customerNotes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Manual order created successfully
+ *       400:
+ *         description: Bad request
+ */
+
+router.post('/manual', authorize('orders', 'manage'), validateRequest(reviewValidationSchema), createManualOrder);
+
 
 
 module.exports = router;

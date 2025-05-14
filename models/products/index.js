@@ -13,8 +13,8 @@ const VehicleType = require('./vehicleType');
 const PRODUCT_STATUS = {
   ACTIVE: 'active',
   INACTIVE: 'inactive',
-  DRAFT: 'draft',
   DISCONTINUED: 'discontinued',
+  DRAFT: 'draft',
   PUBLISH: 'publish'
 };
 
@@ -38,7 +38,6 @@ const Product = sequelize.define('Product', {
   },
   productCode: {
     type: DataTypes.UUID,
-    allowNull: true,
     references: { model: ProductCodes, key: 'id' }
   },
   name: {

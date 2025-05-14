@@ -108,6 +108,7 @@ const loginUser = async (req, res, next) => {
     res.status(200).json(message(true, 'Login successful', {
       id: account.id,
       email: user.email,
+      role : user.role,
       permissions : user.permission,
       authToken : token,
       refreshToken

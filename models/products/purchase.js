@@ -24,11 +24,10 @@ const Purchase = sequelize.define(
     },
     invoiceNumber: {
       type: DataTypes.STRING,
-      allowNull: false,
+      defaultValue: () => "LTS-" + Math.floor(1000 + Math.random() * 9000)
     },
     currency: {
       type: DataTypes.STRING,
-      allowNull: false,
       validate: {
         isIn: [SUPPORTED_CURRENCIES],
       },
@@ -146,6 +145,11 @@ const Purchase = sequelize.define(
     ],
     hooks: {
       beforeValidate: (purchase) => {
+         // 1) generate invoiceNumber first
+        if (!purchase.invoiceNumber) {
+          purchase.invoiceNumber = "LTS-" + Math.floor(1000 + Math.random() * 9000);
+        }
+
         let sub = 0;
         for (const { quantity, costPrice } of purchase.items) {
           sub += quantity * costPrice;
@@ -175,10 +179,6 @@ const Purchase = sequelize.define(
           });
         }
         purchase.setDataValue("items", enriched);
-      },
-      beforeCreate: async (product) => {
-        product.invoiceNumber =
-          "LTS-" + Math.floor(1000 + Math.random() * 9000);
       },
       afterCreate: async (purchase) => {
         if (purchase.status !== PURCHASE_STATUS.COMPLETED) return;

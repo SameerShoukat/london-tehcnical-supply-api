@@ -30,7 +30,6 @@ const Order = sequelize.define('Order', {
   },
   website : {
     type: DataTypes.STRING,
-    allowNull: false
   },
   shippingAddressSnapshot: {
       type: DataTypes.JSONB,
@@ -78,6 +77,14 @@ const Order = sequelize.define('Order', {
         isIn: [Object.values(ORDER_STATUS)]
     },
     defaultValue: ORDER_STATUS.PENDING
+  },
+  type: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+        isIn: ['manual', 'website']
+    },
+    defaultValue: 'manual'
   },
   paymentStatus: {
     type: DataTypes.STRING,

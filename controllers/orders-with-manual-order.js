@@ -6,11 +6,10 @@ const {
   Account,
   OrderHistory,
 } = require("../models/order-and-sale/index");
-const { Op, where } = require("sequelize");
 const sequelize = require("../config/database");
 const _ = require("lodash");
 const boom = require("@hapi/boom");
-const { ORDER_STATUS, ORDER_PAYMENT_STATUS, CURRENCY_BY_COUNTRY, PAYMENT_STATUS } = require("../constant/types");
+const { ORDER_STATUS, ORDER_PAYMENT_STATUS, CURRENCY_BY_COUNTRY } = require("../constant/types");
 const { Product } = require("../models/products/index");
 const {
   calculateFinalPrice,
@@ -26,8 +25,6 @@ const generateOrderNumber = async () => {
 
 const create = async (req, res, next) => {
   const requestCurrency = req?.meta?.currency;
-  let shippingAddressSnapshot = "";
-  let billingAddressSnapshot = "";
   const {
     items,
     email,
@@ -95,14 +92,6 @@ const create = async (req, res, next) => {
       }
     };
 
-    shippingAddressSnapshot = await getAddressSnapshot(
-      shippingAddress,
-      "shipping"
-    );
-    billingAddressSnapshot = await getAddressSnapshot(
-      billingAddress,
-      "billing"
-    );
 
     if(!shippingAddress?.country) throw boom.badImplementation("Country not found")
 
@@ -224,7 +213,7 @@ const create = async (req, res, next) => {
         website,
         accountId,
         orderNumber,
-        shippingAddressSnapshot,
+        shippingAddress,
         billingAddressSnapshot,
         subtotal,
         items: enrichedItems,
@@ -233,7 +222,6 @@ const create = async (req, res, next) => {
         discount: Number(discount),
         currency,
         total: Number(total),
-        type : 'website'
       },
       { transaction }
     );
@@ -242,10 +230,7 @@ const create = async (req, res, next) => {
     for (const item of items) {
       const product = productMap[item.productId];
       await Product.update(
-        {
-                    inStock: Number(product.inStock) - Number(item.quantity),
-                  saleStock:  Number(product.saleStock) + Number(item.quantity)
-        },
+        { inStock: product.inStock - item.quantity, saleStock : item.quantity},
         {
           where: { id: item.productId },
           transaction,
@@ -617,11 +602,13 @@ const updatePaymentStatus = async (req, res, next) => {
     if (!order) throw boom.notFound("Order not found");
 
     if (
-       order.paymentStatus === PAYMENT_STATUS.PAID &&  order.status === ORDER_STATUS.DELIVERED  &&
-      status !== "unpaid"
+      ![ORDER_PAYMENT_STATUS.PAID, ORDER_PAYMENT_STATUS.REFUNDED].includes(
+        order.paymentStatus
+      ) &&
+      status === "unpaid"
     ) {
       throw boom.badRequest(
-        "Delivered Order payment status can't be change to " + status + "You have to marked that as returned"
+        "Order payment status can't be change to " + status
       );
     }
 
@@ -889,13 +876,19 @@ const deleteOne = async (req, res, next) => {
 
 const reviewOrder = async (req, res, next) => {
   try {
-
-    const { items, shippingAddress, currency } = req.body;
+    console.log(req.body)
+    const { items, shippingAddress } = req.body;
 
     // Validate required fields
     if (!items || !items.length) {
       throw boom.badRequest("At least one order item is required");
     }
+
+    if(!shippingAddress?.country) throw boom.badRequest("Country not found")
+
+    // Get currency based on country
+    const currency = CURRENCY_BY_COUNTRY[shippingAddress?.country] || 'USD'
+    
 
     // Validate products and get pricing
     const productIds = items.map((item) => item.productId);
@@ -986,8 +979,7 @@ const createManualOrder = async (req, res, next) => {
     tax = 0,
     discount = 0,
     customerNotes,
-    currency,
-    paymentStatus
+    currency
   } = req.body;
 
   // Validate required fields
@@ -1019,7 +1011,16 @@ const createManualOrder = async (req, res, next) => {
       }
     }
 
-    if(!shippingAddress?.country) throw boom.badImplementation("Country not found")  
+    if(!shippingAddress?.country) throw boom.badImplementation("Country not found")
+
+    const shipmentCurrency = CURRENCY_BY_COUNTRY[shippingAddress?.country] || 'USD'
+
+    if (shipmentCurrency !== currency) {
+      throw boom.forbidden(
+        `Currency must be ${currency} for orders shipping to ${shippingAddress.country}`
+      );
+    }
+  
 
     const productIds = items.map((item) => item.productId);
 
@@ -1090,7 +1091,7 @@ const createManualOrder = async (req, res, next) => {
       return sum + item.quantity * item.price;
     }, 0);
 
-    const total = Number(subtotal) + Number(tax) + Number(shippingCost) - Number(discount);
+    const total = subtotal + tax + shippingCost - discount;
     const orderNumber = await generateOrderNumber();
 
     // Create order
@@ -1098,8 +1099,8 @@ const createManualOrder = async (req, res, next) => {
       {
         accountId,
         orderNumber,
-        shippingAddressSnapshot: shippingAddress,
-        billingAddressSnapshot: billingAddress ?? null,
+        shippingAddressSnapshot: shippingAddressSnapshot,
+        billingAddressSnapshot: billingAddressSnapshot || {},
         subtotal,
         items: enrichedItems,
         tax: Number(tax),
@@ -1107,8 +1108,7 @@ const createManualOrder = async (req, res, next) => {
         discount: Number(discount),
         currency,
         total: Number(total),
-        customerNotes,
-        paymentStatus
+        customerNotes
       },
       { transaction }
     );
@@ -1118,7 +1118,8 @@ const createManualOrder = async (req, res, next) => {
       const product = products.find(p => p.id === item.productId);
       await Product.update(
         { 
-          inStock: Number(product.inStock) - Number(item.quantity)
+          inStock: product.inStock - item.quantity,
+          saleStock: product.saleStock + item.quantity
         },
         {
           where: { id: item.productId },
@@ -1135,7 +1136,7 @@ const createManualOrder = async (req, res, next) => {
           amount: total,
           currency,
           method: paymentMethod,
-          status: paymentStatus,
+          status: paymentMethod === "cod" ? "pending" : "unpaid",
         },
         { transaction }
       );
@@ -1168,531 +1169,6 @@ const createManualOrder = async (req, res, next) => {
     next(error);
   }
 };
-
-
-// order analytics:
-async function getOrderAnalytics(filters = {}) {
-  try {
-    const {
-      startDate,
-      endDate,
-      accountId,
-      status,
-      paymentStatus,
-      website,
-      type,
-      couponCode
-    } = filters;
-    
-    // Build where clause based on filters
-    const whereClause = {};
-    
-    if (startDate && endDate) {
-      whereClause.createdAt = {
-        [Op.between]: [new Date(startDate), new Date(endDate)]
-      };
-    } else if (startDate) {
-      whereClause.createdAt = { [Op.gte]: new Date(startDate) };
-    } else if (endDate) {
-      whereClause.createdAt = { [Op.lte]: new Date(endDate) };
-    }
-    
-    if (accountId) whereClause.accountId = accountId;
-    if (status) whereClause.status = status;
-    if (paymentStatus) whereClause.paymentStatus = paymentStatus;
-    if (website) whereClause.website = website;
-    if (type) whereClause.type = type;
-    if (couponCode) whereClause.couponCode = { [Op.ne]: null };
-    
-    // Basic order counts
-    const totalOrders = await Order.count({ where: whereClause });
-    
-    if (totalOrders === 0) {
-      return {
-        period: startDate && endDate ? `${startDate} to ${endDate}` : 'All time',
-        total_orders: 0,
-        total_sales: 0,
-        average_order_value: 0,
-        status_distribution: {},
-        payment_status_distribution: {},
-        website_distribution: {},
-        order_type_distribution: {},
-        coupon_usage: {
-          orders_with_coupons: 0,
-          coupon_usage_rate: 0,
-          total_discount: 0,
-          average_discount: 0,
-          popular_coupons: []
-        },
-        customer_analysis: {
-          total_customers: 0,
-          new_customers: 0,
-          returning_customers: 0,
-          top_customers: []
-        },
-        sales_trend: [],
-        currency_distribution: {}
-      };
-    }
-    
-    // Aggregated monetary stats
-    const monetaryStats = await Order.findAll({
-      where: whereClause,
-      attributes: [
-        [sequelize.fn('SUM', sequelize.col('total')), 'total_sales'],
-        [sequelize.fn('AVG', sequelize.col('total')), 'average_order_value'],
-        [sequelize.fn('SUM', sequelize.col('subtotal')), 'total_subtotal'],
-        [sequelize.fn('SUM', sequelize.col('discount')), 'total_discount'],
-        [sequelize.fn('SUM', sequelize.col('tax')), 'total_tax'],
-        [sequelize.fn('SUM', sequelize.col('shippingCost')), 'total_shipping']
-      ],
-      raw: true
-    });
-    
-    // Status distribution
-    const statusDistribution = await Order.findAll({
-      where: whereClause,
-      attributes: [
-        'status',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-        [sequelize.fn('SUM', sequelize.col('total')), 'total']
-      ],
-      group: ['status'],
-      raw: true
-    });
-    
-    // Payment status distribution
-    const paymentStatusDistribution = await Order.findAll({
-      where: whereClause,
-      attributes: [
-        'paymentStatus',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-        [sequelize.fn('SUM', sequelize.col('total')), 'total']
-      ],
-      group: ['paymentStatus'],
-      raw: true
-    });
-    
-    // Website distribution
-    const websiteDistribution = await Order.findAll({
-      where: {
-        ...whereClause,
-        website: { [Op.ne]: null }
-      },
-      attributes: [
-        'website',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-        [sequelize.fn('SUM', sequelize.col('total')), 'total']
-      ],
-      group: ['website'],
-      raw: true
-    });
-    
-    // Order type distribution
-    const orderTypeDistribution = await Order.findAll({
-      where: whereClause,
-      attributes: [
-        'type',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-        [sequelize.fn('SUM', sequelize.col('total')), 'total']
-      ],
-      group: ['type'],
-      raw: true
-    });
-    
-    // Currency distribution
-    const currencyDistribution = await Order.findAll({
-      where: whereClause,
-      attributes: [
-        'currency',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-        [sequelize.fn('SUM', sequelize.col('total')), 'total']
-      ],
-      group: ['currency'],
-      raw: true
-    });
-    
-    // Coupon analysis
-    const couponStats = await Order.findAll({
-      where: {
-        ...whereClause,
-        couponCode: { [Op.ne]: null }
-      },
-      attributes: [
-        [sequelize.fn('COUNT', sequelize.col('id')), 'coupon_orders'],
-        [sequelize.fn('SUM', sequelize.col('discount')), 'total_discount'],
-        [sequelize.fn('AVG', sequelize.col('discount')), 'average_discount']
-      ],
-      raw: true
-    });
-    
-    // Popular coupons
-    const popularCoupons = await Order.findAll({
-      where: {
-        ...whereClause,
-        couponCode: { [Op.ne]: null }
-      },
-      attributes: [
-        'couponCode',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'usage_count'],
-        [sequelize.fn('SUM', sequelize.col('discount')), 'total_discount']
-      ],
-      group: ['couponCode'],
-      order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']],
-      limit: 10,
-      raw: true
-    });
-    
-    // Customer analysis
-    const customerStats = await Order.findAll({
-      where: {
-        ...whereClause,
-        accountId: { [Op.ne]: null }
-      },
-      attributes: [
-        [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('accountId'))), 'customer_count']
-      ],
-      raw: true
-    });
-    
-    // Orders per customer
-    const customerOrderCounts = await Order.findAll({
-      where: {
-        ...whereClause,
-        accountId: { [Op.ne]: null }
-      },
-      attributes: [
-        'accountId',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'order_count'],
-        [sequelize.fn('SUM', sequelize.col('total')), 'total_spent']
-      ],
-      group: ['accountId'],
-      raw: true
-    });
-    
-    // Identify new vs returning customers
-    let newCustomers = 0;
-    let returningCustomers = 0;
-    
-    // Get accounts with more than one order
-    const accountCounts = {};
-    customerOrderCounts.forEach(c => {
-      accountCounts[c.accountId] = Number(c.order_count);
-      if (Number(c.order_count) === 1) {
-        newCustomers++;
-      } else {
-        returningCustomers++;
-      }
-    });
-    
-    // Top customers
-    const topCustomers = customerOrderCounts
-      .sort((a, b) => Number(b.order_count) - Number(a.order_count))
-      .slice(0, 10)
-      .map(c => ({
-        accountId: c.accountId,
-        order_count: Number(c.order_count),
-        total_spent: Number(c.total_spent)
-      }));
-    
-    // Enrich with account information if needed
-    // This would require you to have an Account model available
-    if (topCustomers.length > 0 && typeof Account !== 'undefined') {
-      const accountIds = topCustomers.map(c => c.accountId);
-      try {
-        const accounts = await Account.findAll({
-          where: { id: { [Op.in]: accountIds } },
-          attributes: ['id', 'email'], // Adjust based on your Account model
-          raw: true
-        });
-        
-        const accountMap = new Map(accounts.map(a => [a.id, a]));
-        
-        topCustomers.forEach(customer => {
-          const account = accountMap.get(customer.accountId);
-          if (account) {
-            customer.email = account.email;
-            customer.name = account.name;
-          }
-        });
-      } catch (error) {
-        console.error("Error fetching account details:", error);
-      }
-    }
-    
-    // Sales trend by day/week/month
-    let trendGrouping = 'day';
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-      
-      if (diffDays > 60) {
-        trendGrouping = 'month';
-      } else if (diffDays > 14) {
-        trendGrouping = 'week';
-      }
-    }
-    
-    const salesTrend = await Order.findAll({
-      where: whereClause,
-      attributes: [
-        [sequelize.fn('date_trunc', trendGrouping, sequelize.col('createdAt')), 'period'],
-        [sequelize.fn('COUNT', sequelize.col('id')), 'order_count'],
-        [sequelize.fn('SUM', sequelize.col('total')), 'sales_total']
-      ],
-      group: [sequelize.fn('date_trunc', trendGrouping, sequelize.col('createdAt'))],
-      order: [[sequelize.fn('date_trunc', trendGrouping, sequelize.col('createdAt')), 'ASC']],
-      raw: true
-    });
-    
-    // Item analysis
-    const orders = await Order.findAll({
-      where: whereClause,
-      attributes: ['id', 'items'],
-      raw: true
-    });
-    
-    let totalItems = 0;
-    let productQuantities = {};
-    
-    orders.forEach(order => {
-      const items = order.items;
-      if (Array.isArray(items)) {
-        items.forEach(item => {
-          const quantity = Number(item.quantity) || 0;
-          totalItems += quantity;
-          
-          // Count by product
-          if (item.productId) {
-            if (!productQuantities[item.productId]) {
-              productQuantities[item.productId] = 0;
-            }
-            productQuantities[item.productId] += quantity;
-          }
-        });
-      }
-    });
-    
-    // Top selling products
-    const topProducts = Object.entries(productQuantities)
-      .sort(([, countA], [, countB]) => countB - countA)
-      .slice(0, 10)
-      .map(([productId, quantity]) => ({ productId, quantity }));
-    
-    // Format status distribution for easy access
-    const formattedStatusDistribution = {};
-    statusDistribution.forEach(status => {
-      formattedStatusDistribution[status.status] = {
-        count: Number(status.count),
-        total: Number(status.total)
-      };
-    });
-    
-    // Format payment status distribution
-    const formattedPaymentStatusDistribution = {};
-    paymentStatusDistribution.forEach(status => {
-      formattedPaymentStatusDistribution[status.paymentStatus] = {
-        count: Number(status.count),
-        total: Number(status.total)
-      };
-    });
-    
-    // Format website distribution
-    const formattedWebsiteDistribution = {};
-    websiteDistribution.forEach(site => {
-      formattedWebsiteDistribution[site.website || 'unknown'] = {
-        count: Number(site.count),
-        total: Number(site.total)
-      };
-    });
-    
-    // Format order type distribution
-    const formattedTypeDistribution = {};
-    orderTypeDistribution.forEach(type => {
-      formattedTypeDistribution[type.type] = {
-        count: Number(type.count),
-        total: Number(type.total)
-      };
-    });
-    
-    // Format currency distribution
-    const formattedCurrencyDistribution = {};
-    currencyDistribution.forEach(curr => {
-      formattedCurrencyDistribution[curr.currency] = {
-        count: Number(curr.count),
-        total: Number(curr.total)
-      };
-    });
-    
-    // Format sales trend
-    const formattedSalesTrend = salesTrend.map(trend => ({
-      period: trend.period,
-      order_count: Number(trend.order_count),
-      sales_total: Number(trend.sales_total)
-    }));
-    
-    // Calculate coupon usage rate
-    const couponOrderCount = Number(couponStats[0]?.coupon_orders || 0);
-    const couponUsageRate = totalOrders > 0 ? (couponOrderCount / totalOrders * 100).toFixed(2) : 0;
-    
-    // Format popular coupons
-    const formattedPopularCoupons = popularCoupons.map(coupon => ({
-      code: coupon.couponCode,
-      usage_count: Number(coupon.usage_count),
-      total_discount: Number(coupon.total_discount),
-      average_discount: (Number(coupon.total_discount) / Number(coupon.usage_count)).toFixed(2)
-    }));
-    
-    // Prepare the final analytics object
-    return {
-      period: startDate && endDate ? `${startDate} to ${endDate}` : 'All time',
-      total_orders: totalOrders,
-      total_sales: Number(monetaryStats[0]?.total_sales || 0),
-      average_order_value: Number(monetaryStats[0]?.average_order_value || 0),
-      total_subtotal: Number(monetaryStats[0]?.total_subtotal || 0),
-      total_discount: Number(monetaryStats[0]?.total_discount || 0),
-      total_tax: Number(monetaryStats[0]?.total_tax || 0),
-      total_shipping: Number(monetaryStats[0]?.total_shipping || 0),
-      total_items: totalItems,
-      average_items_per_order: totalOrders > 0 ? (totalItems / totalOrders).toFixed(2) : 0,
-      
-      // Status distributions
-      status_distribution: formattedStatusDistribution,
-      payment_status_distribution: formattedPaymentStatusDistribution,
-      website_distribution: formattedWebsiteDistribution,
-      order_type_distribution: formattedTypeDistribution,
-      currency_distribution: formattedCurrencyDistribution,
-      
-      // Summary by order status
-      order_status_summary: {
-        pending: formattedStatusDistribution[ORDER_STATUS.PENDING]?.count || 0,
-        confirmed: formattedStatusDistribution[ORDER_STATUS.CONFIRMED]?.count || 0,
-        processing: formattedStatusDistribution[ORDER_STATUS.PROCESSING]?.count || 0,
-        on_hold: formattedStatusDistribution[ORDER_STATUS.ON_HOLD]?.count || 0,
-        shipped: formattedStatusDistribution[ORDER_STATUS.SHIPPED]?.count || 0,
-        delivered: formattedStatusDistribution[ORDER_STATUS.DELIVERED]?.count || 0,
-        cancelled: formattedStatusDistribution[ORDER_STATUS.CANCELLED]?.count || 0,
-        returned: formattedStatusDistribution[ORDER_STATUS.RETURNED]?.count || 0
-      },
-      
-      // Summary by payment status
-      payment_status_summary: {
-        unpaid: formattedPaymentStatusDistribution[ORDER_PAYMENT_STATUS.UNPAID]?.count || 0,
-        paid: formattedPaymentStatusDistribution[ORDER_PAYMENT_STATUS.PAID]?.count || 0,
-        partially_paid: formattedPaymentStatusDistribution[ORDER_PAYMENT_STATUS.PARTIALLY_PAID]?.count || 0,
-        refunded: formattedPaymentStatusDistribution[ORDER_PAYMENT_STATUS.REFUNDED]?.count || 0
-      },
-      
-      // Coupon analysis
-      coupon_usage: {
-        orders_with_coupons: couponOrderCount,
-        coupon_usage_rate: Number(couponUsageRate),
-        total_discount: Number(couponStats[0]?.total_discount || 0),
-        average_discount: Number(couponStats[0]?.average_discount || 0),
-        popular_coupons: formattedPopularCoupons
-      },
-      
-      // Customer analysis
-      customer_analysis: {
-        total_customers: Number(customerStats[0]?.customer_count || 0),
-        new_customers: newCustomers,
-        returning_customers: returningCustomers,
-        top_customers: topCustomers
-      },
-      
-      // Sales trend over time
-      sales_trend: formattedSalesTrend,
-      
-      // Product analysis
-      top_selling_products: topProducts
-    };
-  } catch (error) {
-    console.error("Error in getOrderAnalytics:", error);
-    throw error;
-  }
-}
-
-// Helper function to get monthly stats
-async function getMonthlyOrderStats(year, month) {
-  const startDate = new Date(year, month - 1, 1); // Month is 0-indexed in JS Date
-  const endDate = new Date(year, month, 0); // Last day of the month
-  
-  return await getOrderAnalytics({
-    startDate,
-    endDate
-  });
-}
-
-// Helper function to get yearly stats
-async function getYearlyOrderStats(year) {
-  const startDate = new Date(year, 0, 1); // January 1st
-  const endDate = new Date(year, 11, 31); // December 31st
-  
-  return await getOrderAnalytics({
-    startDate,
-    endDate
-  });
-}
-
-// Helper function to get daily sales report
-async function getDailySalesReport(date) {
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-  
-  return await getOrderAnalytics({
-    startDate: startOfDay,
-    endDate: endOfDay
-  });
-}
-
-// Example usage
-async function runOrderAnalytics() {
-  try {
-    // Get April 2025 stats as requested
-    const april2025Stats = await getMonthlyOrderStats(2025, 4);
-    console.log("April 2025 Order Statistics:");
-    console.log(`Total Sales: ${april2025Stats.total_sales}`);
-    console.log(`Total Orders: ${april2025Stats.total_orders}`);
-    console.log(`Completed Orders: ${april2025Stats.order_status_summary.delivered}`);
-    console.log(`Returned Orders: ${april2025Stats.order_status_summary.returned}`);
-    console.log(`Total Discount: ${april2025Stats.total_discount}`);
-    console.log(`Orders with Coupons: ${april2025Stats.coupon_usage.orders_with_coupons}`);
-    console.log("Order Type Breakdown:", april2025Stats.order_type_distribution);
-    console.log("Most Active Customer:", april2025Stats.customer_analysis.top_customers[0]);
-    
-    // Current month stats (dynamic)
-    const now = new Date();
-    const currentMonthStats = await getMonthlyOrderStats(now.getFullYear(), now.getMonth() + 1);
-    console.log(`Current Month Order Statistics: ${currentMonthStats.total_orders} orders, ${currentMonthStats.total_sales} in sales`);
-    
-    // Year to date stats
-    const yearToDateStats = await getYearlyOrderStats(now.getFullYear());
-    console.log(`Year-to-Date Statistics: ${yearToDateStats.total_orders} orders, ${yearToDateStats.total_sales} in sales`);
-    
-    // Today's sales
-    const todaySales = await getDailySalesReport(now);
-    console.log(`Today's Sales: ${todaySales.total_sales}`);
-    
-    // Get stats for specific website
-    const websiteStats = await getOrderAnalytics({
-      website: "example.com"
-    });
-    console.log(`Website Orders: ${websiteStats.total_orders}`);
-    
-    // Get stats for specific payment status
-    const paidOrderStats = await getOrderAnalytics({
-      paymentStatus: ORDER_PAYMENT_STATUS.PAID
-    });
-    console.log(`Paid Orders: ${paidOrderStats.total_orders}`);
-  } catch (error) {
-    console.error("Failed to get order analytics:", error);
-  }
-}
-runOrderAnalytics()
 
 module.exports = {
   create,

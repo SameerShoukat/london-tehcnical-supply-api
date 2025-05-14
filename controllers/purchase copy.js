@@ -406,7 +406,7 @@ async function runPurchaseAnalytics() {
     console.error("Failed to get purchase analytics:", error);
   }
 }
-
+runPurchaseAnalytics()
 
 
 
