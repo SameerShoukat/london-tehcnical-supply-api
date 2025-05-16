@@ -1692,7 +1692,6 @@ async function runOrderAnalytics() {
     console.error("Failed to get order analytics:", error);
   }
 }
-runOrderAnalytics()
 
 module.exports = {
   create,

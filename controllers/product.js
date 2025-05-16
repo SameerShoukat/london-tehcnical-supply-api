@@ -7,7 +7,6 @@ const { message } = require("../utils/hook");
 const { Product, PRODUCT_STATUS } = require("../models/products/index");
 const Catalog = require("../models/catalog");
 const Category = require("../models/category");
-const Website = require("../models/website");
 const SubCategory = require("../models/subCategory");
 const User = require("../models/users");
 const ProductAttribute = require("../models/products/product_attribute");
@@ -17,6 +16,7 @@ const ProductCodes = require("../models/products/codes");
 const ProductTags = require("../models/products/tags");
 const Brand = require("../models/products/brand");
 const VehicleType = require("../models/products/vehicleType");
+const { getWebsiteIdByDomain } = require("./website");
 
 // Common error handler
 const handleError = (error, next) => {
@@ -569,7 +569,7 @@ const productDropdown = async (req, res, next) => {
             as: "productPricing",
             attributes: [],
             where: { currency },
-            required: true, 
+            required: true,
           },
         ],
         order: orderBy,
@@ -589,7 +589,6 @@ const productDropdown = async (req, res, next) => {
   }
 };
 
-
 const assignTag = async (req, res, next) => {
   try {
     const { tag: newTags, productId } = req.body;
@@ -599,28 +598,18 @@ const assignTag = async (req, res, next) => {
 
     // Ensure newTags is an array
     const tagsToAdd = Array.isArray(newTags) ? newTags : [newTags];
-    if (tagsToAdd.length === 0) {
-      throw boom.badRequest("No tags provided");
+
+    if (tagsToAdd.length > 0) {
+      const tags = await ProductTags.findAll({
+        where: {
+          slug: { [Op.in]: tagsToAdd },
+        },
+      });
+
+      if (tags.length !== tagsToAdd.length)
+        throw boom.badRequest("Some tags are invalid");
     }
 
-    const tags = await ProductTags.findAll({
-      where: {
-        slug: { [Op.in]: tagsToAdd },
-      },
-    });
-    if (tags.length !== tagsToAdd.length)
-      throw boom.badRequest("Some tags are invalid");
-
-    // Get current tags and filter out duplicates
-    // const currentTags = product.tags || [];
-    // const uniqueNewTags = tagsToAdd.filter((tag) => !currentTags.includes(tag));
-
-    // if (uniqueNewTags.length === 0) {
-    //   throw boom.conflict("All tags already exist on the product");
-    // }
-
-    // // Merge and update
-    // const updatedTags = [...currentTags, ...uniqueNewTags];
     await product.update({ tags: tagsToAdd });
 
     return res
@@ -678,11 +667,17 @@ const removeTag = async (req, res, next) => {
 const attributeList = async (req, res, next) => {
   try {
     const { attributeName } = req.query;
+    const attributes = [
+      ["id", "attributeId"],
+      ["name", "value"],
+      "productCount",
+      "slug",
+    ];
     if (!attributeName)
       throw boom.badRequest("Attribute is require to access this endpoint");
     if (attributeName === "brand") {
       const results = await Brand.findAll({
-        attributes: [["id", "value"], "name", "productCount", "slug"],
+        attributes: attributes,
         order: [["name", "ASC"]],
       });
       res
@@ -690,7 +685,7 @@ const attributeList = async (req, res, next) => {
         .json(message(true, "Attribute retrieved successfully", results));
     } else if (attributeName === "vehicle_type") {
       const results = await VehicleType.findAll({
-        attributes: [["id", "value"], "name", "productCount", "slug"],
+        attributes: attributes,
         order: [["name", "ASC"]],
       });
       res
@@ -706,13 +701,17 @@ const attributeList = async (req, res, next) => {
 
 const productList = async (req, res, next) => {
   try {
-    const { websiteId, offset = 0, pageSize = 20 } = req.query;
+    const { offset = 0, pageSize = 20 } = req.query;
     const { catalog, categories, subcategories, brands, vehicle_type, tag } =
       req.body;
-
+    const domain = req.hostname || req.headers.host;
     const currency = req?.meta?.currency;
 
+    const websiteId = await getWebsiteIdByDomain(domain);
+
     const filterConditions = [];
+
+    filterConditions["status"] = PRODUCT_STATUS.PUBLISH;
 
     // Categories filter
     if (categories?.length > 0) {
@@ -823,14 +822,21 @@ const productList = async (req, res, next) => {
 const getProductDetail = async (req, res, next) => {
   try {
     const { slug } = req.params;
-
+    const domain = req.hostname || req.headers.host;
     const currency = req?.meta?.currency;
+
+    const websiteId = await getWebsiteIdByDomain(domain);
+    const filter = {};
+    filter["slug"] = slug;
+    if (websiteId) {
+      filter["websiteId"] = websiteId;
+    }
 
     const productList = {};
 
     // Consolidate product retrieval into a single query
     const product = await Product.findOne({
-      where: { slug },
+      where: filter,
       attributes: [
         "id",
         "sku",
@@ -1052,9 +1058,6 @@ const searchProducts = async (req, res, next) => {
   }
 };
 
-
-
-
 // analytics of products
 async function getProductStockAnalytics(websiteId = null) {
   const whereClause = {};
@@ -1064,7 +1067,7 @@ async function getProductStockAnalytics(websiteId = null) {
 
   // Check if products exist first
   const count = await Product.count({ where: whereClause });
-  
+
   if (count === 0) {
     return {
       total_products: 0,
@@ -1079,12 +1082,12 @@ async function getProductStockAnalytics(websiteId = null) {
   try {
     const products = await Product.findAll({
       where: whereClause,
-      attributes: ['tags'],
-      raw: true
+      attributes: ["tags"],
+      raw: true,
     });
-    
+
     // Collect all tags, flatten array, and remove duplicates
-    const allTags = products.flatMap(p => p.tags || []).filter(Boolean);
+    const allTags = products.flatMap((p) => p.tags || []).filter(Boolean);
     uniqueTags = [...new Set(allTags)];
   } catch (error) {
     console.error("Error fetching tags:", error);
@@ -1118,7 +1121,7 @@ async function getProductCountByCurrency(websiteId = null) {
   // Check if any products exist first
   const productCount = await Product.count({ where: productWhere });
   if (productCount === 0) return {};
-  
+
   // Get product IDs
   const productIds = await Product.findAll({
     where: productWhere,
@@ -1126,7 +1129,7 @@ async function getProductCountByCurrency(websiteId = null) {
     raw: true,
   });
 
-  const ids = productIds.map(p => p.id);
+  const ids = productIds.map((p) => p.id);
   if (ids.length === 0) return {};
 
   try {
@@ -1144,7 +1147,7 @@ async function getProductCountByCurrency(websiteId = null) {
 
     // Convert directly to object without loop
     return Object.fromEntries(
-      currencyCounts.map(c => [c.currency, Number(c.count)])
+      currencyCounts.map((c) => [c.currency, Number(c.count)])
     );
   } catch (error) {
     console.error("Error in getProductCountByCurrency:", error);

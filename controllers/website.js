@@ -151,6 +151,29 @@ const websiteDropdown = async (req, res, next) => {
   }
 }
 
+async function getWebsiteIdByDomain(domain) {
+  if (!domain) return null;
+
+  // Normalize and validate the domain
+  const prettyDomain = domain.toLowerCase().trim();
+
+  // Exclude localhost or invalid domains
+  if (
+    prettyDomain.includes("localhost") ||
+    prettyDomain === "127.0.0.1" ||
+    !/^(?!:\/\/)([a-zA-Z0-9-_]+\.)+[a-zA-Z]{2,}$/.test(prettyDomain)
+  ) {
+    return null;
+  }
+
+  // Optionally remove protocol if passed with it
+  const cleanedDomain = prettyDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
+
+  const website = await Website.findOne({ where: { url: cleanedDomain } });
+  return website;
+}
+
+
 // async function checker() {
 //   await Website.increment('productCount', { 
 //     by: 1, 
@@ -166,5 +189,6 @@ module.exports = {
     updateOne,
     getOne,
     deleteOne,
-    websiteDropdown
+    websiteDropdown,
+    getWebsiteIdByDomain
 };
