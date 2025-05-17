@@ -101,36 +101,44 @@ const deleteOne = async (req, res, next) => {
 // Calculate shipment charge based on country and amount
 const calculateShipmentCharge = async (req, res, next) => {
   try {
-    const { country, state, zipCode,  totalAmount } = req.body;
+    const { country, state, zipCode, totalAmount } = req.body;
     if (!country || !totalAmount) {
-      throw boom.badRequest('Country and total amount are required');
+      throw boom.badRequest("Country and total amount are required");
     }
-    const currency = req?.meta?.currency;
 
-    // Find applicable shipment charge
+    const currency = req?.meta?.currency;
+    const totalAmountToCalculate = Number(totalAmount);
+
+    // Try to find applicable shipment charge
     const charge = await ShipmentCharge.findOne({
-      where: { currency }
+      where: { currency },
     });
 
-    if (!charge) {
-      throw boom.notFound('No shipment charge found for this region');
+    // If no charge found, fallback to default
+    let shippingAmount = 0;
+    let calculationType = "none";
+    let amount = 0;
+
+    if (charge) {
+      if (charge.isFixed) {
+        shippingAmount = charge.amount;
+        calculationType = "fixed";
+        amount = charge.amount;
+      } else {
+        shippingAmount = (totalAmountToCalculate * charge.amount) / 100;
+        calculationType = "percentage";
+        amount = charge.amount;
+      }
     }
 
-    // Calculate final shipping amount
-    const totalAmountToCalculate = Number(totalAmount);
-    let shippingAmount;
-    if (charge.isFixed) {
-      shippingAmount = charge.amount;
-    } else {
-      shippingAmount = (totalAmountToCalculate * charge.amount) / 100;
-    }
-
-    return res.status(200).json(message(true, 'Shipment charge calculated', {
-      shippingAmount,
-      currency,
-      amount : charge.amount,
-      calculationType: charge.isFixed ? 'fixed' : 'percentage'
-    }));
+    return res.status(200).json(
+      message(true, "Shipment charge calculated", {
+        shippingAmount,
+        currency,
+        amount,
+        calculationType,
+      })
+    );
   } catch (error) {
     next(error);
   }

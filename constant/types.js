@@ -34,9 +34,9 @@ const CURRENCY = {
 };
 
 const CURRENCY_BY_COUNTRY = {
-    USD: 'USD',
-    AED: 'AED',
-    GBP: 'GBP'
+    USA: 'USD',
+    UAE: 'AED',
+    UK: 'GBP'
 };
 
 const ADDRESS_TYPE = { 

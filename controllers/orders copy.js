@@ -27,8 +27,8 @@ const generateOrderNumber = async () => {
 
 const create = async (req, res, next) => {
   const requestCurrency = req?.meta?.currency;
-  const domain = req.hostname || req.headers.host;
-  const website = await getWebsiteIdByDomain(domain);
+  let shippingAddressSnapshot = "";
+  let billingAddressSnapshot = "";
   let {
     items,
     email,
@@ -36,27 +36,37 @@ const create = async (req, res, next) => {
     billingAddress,
     paymentMethod,
     shippingCost: shipping = 0,
-    tax: taxAmount = 0,
-    discount = 0,
+    tax : taxAmount = 0,
+    discount = 0
   } = req.body;
+  const domain = req.hostname || req.headers.host;
+  const website = await getWebsiteIdByDomain(domain);
 
+  // Validate required fields
   if (!items || !items.length) {
-    return next(boom.badRequest("At least one order item is required"));
+    throw boom.badRequest("At least one order item is required");
   }
 
+  // Start transaction
   const transaction = await sequelize.transaction();
 
   try {
+    // Account handling
     let accountId = req?.account?.id ?? null;
     let password;
-
     if (!accountId) {
-      const existingAccount = await Account.findOne({ where: { email }, transaction });
+      const existingAccount = await Account.findOne({
+        where: { email },
+        transaction,
+      });
       if (existingAccount) {
         accountId = existingAccount.id;
       } else {
         password = generatePassword(10);
-        const newAccount = await Account.create({ email, password }, { transaction });
+        const newAccount = await Account.create(
+          { email, password },
+          { transaction }
+        );
         accountId = newAccount.id;
       }
     }
@@ -65,145 +75,210 @@ const create = async (req, res, next) => {
       if (addr?.addressId) {
         const address = await Address.findByPk(addr.addressId, {
           attributes: [
-            "firstName", "lastName", "phoneNumber",
-            "street", "country", "city", "state", "postalCode"
+            "firstName",
+            "lastName",
+            "phoneNumber",
+            "street",
+            "country",
+            "city",
+            "state",
+            "postalCode",
           ],
           where: { accountId },
           transaction,
         });
         if (!address) throw boom.badRequest(`Invalid ${type} address ID`);
         return address.toJSON();
+      } else {
+        if (!addr?.addressSnapshot) {
+          throw boom.badRequest(`${type} address snapshot is required`);
+        }
+        return addr.addressSnapshot;
       }
-      if (!addr?.addressSnapshot) {
-        throw boom.badRequest(`${type} address snapshot is required`);
-      }
-      return addr.addressSnapshot;
     };
 
-    const shippingAddressSnapshot = await getAddressSnapshot(shippingAddress, "shipping");
-    const billingAddressSnapshot = await getAddressSnapshot(billingAddress, "billing");
+    shippingAddressSnapshot = await getAddressSnapshot(
+      shippingAddress,
+      "shipping"
+    );
+    billingAddressSnapshot = await getAddressSnapshot(
+      billingAddress,
+      "billing"
+    );
 
-    if (!shippingAddressSnapshot?.country) {
-      throw boom.badImplementation("Shipping country not found");
-    }
+    if(!shippingAddressSnapshot?.country) throw boom.badImplementation("Country not found")
 
-    const currency = CURRENCY_BY_COUNTRY[shippingAddressSnapshot.country] || "USD";
+    const currency = CURRENCY_BY_COUNTRY[shippingAddress?.country] || 'USD'
+
     if (requestCurrency !== currency) {
-      throw boom.forbidden(`Currency must be ${currency} for orders shipping to ${shippingAddressSnapshot.country}`);
+      throw boom.forbidden(
+        `Currency must be ${currency} for orders shipping to ${shippingAddress.country}`
+      );
     }
-
+    
+    // Validate products and calculate totals
     const productIds = items.map((item) => item.productId);
     const products = await Product.findAll({
       where: { id: productIds },
-      attributes: ["id", "name", "sku", "inStock"],
-      include: [{
-        model: ProductPricing,
-        as: "productPricing",
-        attributes: ["currency", "discountType", "discountValue", "basePrice", "finalPrice"],
-        where: { currency },
-        required: true,
-      }],
+      attributes: ["id", "name", "sku", "inStock", "inStock"],
+      include: [
+        {
+          model: ProductPricing,
+          as: "productPricing",
+          attributes: [
+            "currency",
+            "discountType",
+            "discountValue",
+            "basePrice",
+            "finalPrice",
+          ],
+          where: { currency },
+          required: true,
+        },
+      ],
       transaction,
     });
 
-    const productMap = {};
-    const outOfStock = [];
-    const insufficientStock = [];
+    // Check if all products are in stock
+    const outOfStockProducts = [];
+    const insufficientStockProducts = [];
 
-    for (const product of products) {
+    products.forEach((product) => {
       const orderItem = items.find((item) => item.productId === product.id);
+
       if (!product.inStock) {
-        outOfStock.push(product);
-      } else if (product.inStock < orderItem.quantity) {
-        insufficientStock.push({
-          ...product.toJSON(),
-          requested: orderItem.quantity,
+        outOfStockProducts.push({
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
         });
-      } else {
-        const pricing = product.productPricing[0];
-        const { productPrice, productDiscount } = calculateFinalPrice(pricing);
-        discount += productDiscount;
-        productMap[product.id] = {
-          ...product.toJSON(),
-          price: productPrice,
-          discount: productDiscount,
-        };
+      } else if (product.inStock < orderItem.quantity) {
+        insufficientStockProducts.push({
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+          requested: orderItem.quantity,
+          available: product.inStock,
+        });
       }
-    }
 
-    if (outOfStock.length) {
-      throw boom.badRequest(`Out of stock: ${outOfStock.map((p) => p.name).join(", ")}`);
-    }
+      const pricing = product.productPricing[0];
+      const { productPrice, productDiscount } = calculateFinalPrice(
+        pricing.dataValues
+      );
+      discount += productDiscount;
+      product.price = +productPrice;
+      product.discount = +productDiscount;
+      delete product.productPricing;
+    });
 
-    if (insufficientStock.length) {
+    // Return error if any products are out of stock
+    if (outOfStockProducts.length > 0) {
       throw boom.badRequest(
-        `Insufficient stock: ${insufficientStock.map((p) => `${p.name} (requested: ${p.requested}, available: ${p.inStock})`).join(", ")}`
+        `The following products are out of stock: ${outOfStockProducts
+          .map((p) => p.name)
+          .join(", ")}`
+      );
+    }
+
+    // Return error if any products have insufficient stock
+    if (insufficientStockProducts.length > 0) {
+      throw boom.badRequest(
+        `Insufficient stock for: ${insufficientStockProducts
+          .map(
+            (p) =>
+              `${p.name} (requested: ${p.requested}, available: ${p.available})`
+          )
+          .join(", ")}`
       );
     }
 
     if (products.length !== items.length) {
-      throw boom.badRequest("Some products are invalid");
+      throw boom.badRequest("One or more products are invalid");
     }
+
+    const productMap = products.reduce((map, product) => {
+      map[product.id] = product;
+      return map;
+    }, {});
 
     const enrichedItems = items.map((item) => {
       const product = productMap[item.productId];
       return {
         ...item,
+        price: product.price,
+        discount: product.discount,
         name: product.name,
         sku: product.sku,
-        price: Number(product.price),
-        discount: Number(product.discount),
       };
     });
 
-    const subtotal = Number(enrichedItems.reduce((sum, item) => sum + item.quantity * item.price, 0).toFixed(2));
-    const tax = Number((subtotal * taxAmount).toFixed(2));
-    const total = Number((subtotal + tax + shipping - discount).toFixed(2));
+    const subtotal = enrichedItems.reduce((sum, item) => {
+      return sum + item.quantity * item.price;
+    }, 0);
+
+    const tax = +subtotal * taxAmount;
+    const total = +subtotal + tax + shipping - discount;
     const orderNumber = await generateOrderNumber();
 
-    const order = await Order.create({
-      website,
-      accountId,
-      orderNumber,
-      shippingAddressSnapshot,
-      billingAddressSnapshot,
-      subtotal,
-      items: enrichedItems,
-      tax,
-      shippingCost: Number(shipping),
-      discount: Number(discount),
-      currency,
-      total,
-      type: "website",
-    }, { transaction });
-
-    await Promise.all(items.map((item) => {
-      const product = productMap[item.productId];
-      return Product.update({
-        inStock: product.inStock - item.quantity,
-        saleStock: (product.saleStock || 0) + item.quantity
-      }, {
-        where: { id: item.productId },
-        transaction
-      });
-    }));
-
-    if (paymentMethod !== "cod") {
-      await Payment.create({
-        orderId: order.id,
-        amount: total,
+    const order = await Order.create(
+      {
+        website,
+        accountId,
+        orderNumber,
+        shippingAddressSnapshot,
+        billingAddressSnapshot,
+        subtotal,
+        items: enrichedItems,
+        tax: Number(tax),
+        shippingCost: Number(shipping),
+        discount: Number(discount),
         currency,
-        method: paymentMethod,
-        status: "unpaid",
-      }, { transaction });
+        total: Number(total),
+        type : 'website'
+      },
+      { transaction }
+    );
+
+    // Update product stock quantities
+    for (const item of items) {
+      const product = productMap[item.productId];
+      const productInStock = Number(product.inStock) || 0
+      const productSaleStock = Number(product.saleStock) || 0
+      await Product.update(
+        {
+                    inStock: productInStock - Number(item.quantity),
+                  saleStock: productSaleStock + Number(item.quantity)
+        },
+        {
+          where: { id: item.productId },
+          transaction,
+        }
+      );
     }
 
-    await OrderHistory.create({
-      orderId: order.id,
-      status: "created",
-      performedBy: accountId,
-      note: "Order created",
-    }, { transaction });
+    if (paymentMethod !== "cod") {
+      await Payment.create(
+        {
+          orderId: order.id,
+          amount: total,
+          currency,
+          method: paymentMethod,
+          status: paymentMethod === "cod" ? "pending" : "unpaid",
+        },
+        { transaction }
+      );
+    }
+
+    await OrderHistory.create(
+      {
+        orderId: order.id,
+        status: "created",
+        performedBy: accountId,
+        note: "Order created",
+      },
+      { transaction }
+    );
 
     await transaction.commit();
 
@@ -211,13 +286,16 @@ const create = async (req, res, next) => {
       include: [{ model: Payment, as: "payments" }],
     });
 
-    return res.status(200).json(message(true, "Order created successfully", orderDetails));
+    return res
+      .status(200)
+      .json(message(true, "Order created successfully", orderDetails));
   } catch (error) {
-    if (!transaction.finished) await transaction.rollback();
+    if (!transaction.finished) {
+      await transaction.rollback();
+    }
     next(error);
   }
 };
-
 
 const getOne = async (req, res, next) => {
   const orderId = req.params.id;

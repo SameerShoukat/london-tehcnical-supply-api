@@ -82,7 +82,7 @@ const Order = sequelize.define('Order', {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {
-        isIn: ['manual', 'website']
+        isIn: [['manual', 'website']]
     },
     defaultValue: 'manual'
   },
