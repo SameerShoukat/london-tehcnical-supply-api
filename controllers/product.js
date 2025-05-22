@@ -1009,17 +1009,18 @@ const getProductInformation = async (req, res, next) => {
 const searchProducts = async (req, res, next) => {
   try {
     const { name } = req.params;
-
     const currency = req?.meta?.currency;
 
-    const { Op } = require("sequelize");
+    if (!name || name.trim() === "") {
+      return res.status(400).json(message(false, "Search term is required"));
+    }
 
     const relatedProducts = await Product.findAll({
       where: {
         name: {
           [Op.iLike]: `%${name}%`,
         },
-        query: { inStock: { [Op.gt]: 0 } },
+        inStock: { [Op.gt]: 0 },
       },
       attributes: [
         "id",
@@ -1058,102 +1059,33 @@ const searchProducts = async (req, res, next) => {
   }
 };
 
-// analytics of products
-async function getProductStockAnalytics(websiteId = null) {
-  const whereClause = {};
-  if (websiteId) {
-    whereClause.websiteId = { [Op.contains]: [websiteId] };
-  }
-
-  // Check if products exist first
-  const count = await Product.count({ where: whereClause });
-
-  if (count === 0) {
-    return {
-      total_products: 0,
-      total_sale_stock: 0,
-      total_in_stock: 0,
-      unique_tags_count: 0,
-    };
-  }
-
-  // Get all tags in a separate query to avoid ARRAY_AGG issue
-  let uniqueTags = [];
+const getProductAnalytics = async (req, res, next) => {
   try {
-    const products = await Product.findAll({
-      where: whereClause,
-      attributes: ["tags"],
-      raw: true,
-    });
+    const { startDate, endDate, website } = req.query;
+    const formatStartDate = startDate ? new Date(startDate) : null;
+    const formatEndDate = endDate ? new Date(endDate) : null;
 
-    // Collect all tags, flatten array, and remove duplicates
-    const allTags = products.flatMap((p) => p.tags || []).filter(Boolean);
-    uniqueTags = [...new Set(allTags)];
-  } catch (error) {
-    console.error("Error fetching tags:", error);
-  }
-
-  // Get aggregate statistics
-  const result = await Product.findAll({
-    where: whereClause,
-    attributes: [
-      [sequelize.fn("COUNT", sequelize.col("id")), "total_products"],
-      [sequelize.fn("SUM", sequelize.col("saleStock")), "total_sale_stock"],
-      [sequelize.fn("SUM", sequelize.col("inStock")), "total_in_stock"],
-    ],
-    raw: true,
-  });
-
-  return {
-    total_products: parseInt(result[0]?.total_products || 0),
-    total_sale_stock: parseInt(result[0]?.total_sale_stock || 0),
-    total_in_stock: parseInt(result[0]?.total_in_stock || 0),
-    unique_tags_count: uniqueTags.length,
-  };
-}
-
-async function getProductCountByCurrency(websiteId = null) {
-  const productWhere = {};
-  if (websiteId) {
-    productWhere.websiteId = { [Op.contains]: [websiteId] };
-  }
-
-  // Check if any products exist first
-  const productCount = await Product.count({ where: productWhere });
-  if (productCount === 0) return {};
-
-  // Get product IDs
-  const productIds = await Product.findAll({
-    where: productWhere,
-    attributes: ["id"],
-    raw: true,
-  });
-
-  const ids = productIds.map((p) => p.id);
-  if (ids.length === 0) return {};
-
-  try {
-    const currencyCounts = await ProductPricing.findAll({
-      where: {
-        productId: { [Op.in]: ids },
-      },
-      attributes: [
-        "currency",
-        [sequelize.fn("COUNT", sequelize.col("currency")), "count"],
-      ],
-      group: ["currency"],
-      raw: true,
-    });
-
-    // Convert directly to object without loop
-    return Object.fromEntries(
-      currencyCounts.map((c) => [c.currency, Number(c.count)])
+    const productStatsByCurrency = await getProductCountByCurrency(website);
+    const productCurrencyStats = await getProductStockAnalytics(
+      website,
+      formatStartDate,
+      formatEndDate
     );
+
+    res
+      .status(200)
+      .json(
+        message(
+          true,
+          "Product analytics retrieved successfully",
+          { ...productStatsByCurrency, ...productCurrencyStats }
+        )
+      );
   } catch (error) {
-    console.error("Error in getProductCountByCurrency:", error);
-    return {};
+    next(error);
   }
-}
+};
+
 
 module.exports = {
   create,
@@ -1173,4 +1105,86 @@ module.exports = {
   restoreProducts,
   copyProduct,
   getProductInformation,
+  getProductAnalytics
 };
+
+
+async function getProductCountByCurrency(
+  websiteId = null,
+  startDate = null,
+  endDate = null
+) {
+  const productWhere = {};
+  if (websiteId) {
+    productWhere.websiteId = { [Op.contains]: [websiteId] };
+  }
+
+  try {
+    const [results] = await sequelize.query(`
+      SELECT pp.currency, COUNT(*) as count
+      FROM "product_pricing" pp
+      INNER JOIN "products" p ON pp."productId" = p."id"
+      ${websiteId ? `WHERE p."websiteId" @> ARRAY['${websiteId}']` : ""}
+      ${
+        startDate && endDate
+          ? `${
+              websiteId ? "AND" : "WHERE"
+            } p."createdAt" BETWEEN '${startDate}' AND '${endDate}'`
+          : ""
+      }
+      GROUP BY pp.currency
+    `);
+
+    return Object.fromEntries(
+      results.map((r) => [r.currency, parseInt(r.count)])
+    );
+  } catch (error) {
+    console.error("Error in getProductCountByCurrency:", error);
+    return {};
+  }
+}
+
+async function getProductStockAnalytics(
+  websiteId = null,
+  startDate = null,
+  endDate = null
+) {
+  const whereClause = {};
+  if (websiteId) {
+    whereClause.websiteId = { [Op.contains]: [websiteId] };
+  }
+
+  if (startDate && endDate) {
+    whereClause.createdAt = {
+      [Op.between]: [startDate, endDate],
+    };
+  }
+
+  // Check if products exist first
+  const count = await Product.count({ where: whereClause });
+
+  if (count === 0) {
+    return {
+      total_products: 0,
+      total_sale_stock: 0,
+      total_in_stock: 0,
+      unique_tags_count: 0,
+    };
+  }
+
+  const result = await Product.findAll({
+    where: whereClause,
+    attributes: [
+      [sequelize.fn("COUNT", sequelize.col("id")), "total_products"],
+      [sequelize.fn("SUM", sequelize.col("saleStock")), "total_sale_stock"],
+      [sequelize.fn("SUM", sequelize.col("inStock")), "total_in_stock"],
+    ],
+    raw: true,
+  });
+
+  return {
+    total_products: parseInt(result[0]?.total_products || 0),
+    total_sale_stock: parseInt(result[0]?.total_sale_stock || 0),
+    total_in_stock: parseInt(result[0]?.total_in_stock || 0),
+  };
+}

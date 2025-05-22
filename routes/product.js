@@ -17,7 +17,8 @@ const {
   restoreProducts,
   getSoftDeleted,
   copyProduct,
-  getProductInformation
+  getProductInformation,
+  getProductAnalytics
 } = require('../controllers/product');
 const upload = require('../utils/upload');
 const { authorize } = require('../middleware/auth');
@@ -238,6 +239,52 @@ const productCodeValidationSchema = Joi.object({
  *         description: Not Found
  */
 router.get('/', authorize('stock', 'view'), getAll);
+
+
+/**
+ * @openapi
+ * '/api/product/analytics':
+ *  get:
+ *     tags:
+ *     - Product
+ *     summary: Get analytics of the product
+ *     security:
+ *     - Bearer: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           default: '2025-04-01'
+ *         description: Start date of the analytics period
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           default: '2025-04-30'
+ *         description: End date of the analytics period
+ *       - in: query
+ *         name: website
+ *         schema:
+ *           type: string
+ *           default: ''
+ *         description: Filter analytics by website
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             example:
+ *               GBP: 17
+ *               AED: 14
+ *               USD: 19
+ *               total_products: 10
+ *               total_sale_stock: 0
+ *               total_in_stock: 539
+ *       404:
+ *         description: Not Found
+ */
+router.get('/analytics', authorize('stock', 'view'), getProductAnalytics);
 
 /**
  * @openapi

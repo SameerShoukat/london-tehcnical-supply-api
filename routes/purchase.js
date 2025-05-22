@@ -7,6 +7,7 @@ const {
   updateOne,
   getOne,
   deleteOne,
+  purchaseAnalytics
 } = require("../controllers/purchase.js");
 const { authorize } = require("../middleware/auth");
 const validateRequest = require("../middleware/validation");
@@ -172,6 +173,51 @@ const purchaseSchema = Joi.object({
  *         description: Internal Server Error
  */
 router.get("/", authorize("purchase", "view"), getAll);
+
+/**
+ * @openapi
+ * '/api/purchase/analytics':
+ *  get:
+ *     tags:
+ *     - Purchase
+ *     summary: Get analytics of the purchase
+ *     security:
+ *     - Bearer: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           default: '2025-04-01'
+ *         description: Start date of the analytics period
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           default: '2025-04-30'
+ *         description: End date of the analytics period
+ *       - in: query
+ *         name: website
+ *         schema:
+ *           type: string
+ *           default: ''
+ *         description: Filter analytics by website
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             example:
+ *               GBP: 17
+ *               AED: 14
+ *               USD: 19
+ *               total_products: 10
+ *               total_sale_stock: 0
+ *               total_in_stock: 539
+ *       404:
+ *         description: Not Found
+ */
+router.get('/analytics', authorize('purchase', 'view'), purchaseAnalytics);
 
 /**
  * @openapi

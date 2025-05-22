@@ -10,7 +10,8 @@ const {
     updateStatus,
     updatePaymentStatus,
     reviewOrder,
-    createManualOrder
+    createManualOrder,
+    orderAnalytics
 } = require('../controllers/orders');
 const { authorize } = require('../middleware/auth');
 const validateRequest = require('../middleware/validation');
@@ -213,7 +214,86 @@ const addressSnapshotSchema = Joi.object({
  *       404:
  *         description: Not Found
  */
-router.get('/', authorize('stock', 'view'), getAll);
+router.get('/', authorize('orders', 'view'), getAll);
+
+/**
+ * @openapi
+ * '/api/order/analytics':
+ *  get:
+ *     tags:
+ *     - Order
+ *     summary: Get analytics of the order
+ *     security:
+ *     - Bearer: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           default: '2025-04-01'
+ *         description: Start date of the analytics period
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           default: '2025-04-30'
+ *         description: End date of the analytics period
+ *       - in: query
+ *         name: website
+ *         schema:
+ *           type: string
+ *           default: ''
+ *         description: Filter analytics by website
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             example:
+ *               period: "Tue Apr 01 2025 00:00:00 GMT+0500 (Pakistan Standard Time) to Wed Apr 30 2025 00:00:00 GMT+0500 (Pakistan Standard Time)"
+ *               total_orders: 8
+ *               total_sales: 1421.42
+ *               average_order_value: 177.6775
+ *               total_subtotal: 1020
+ *               total_discount: 103.5
+ *               total_tax: 417
+ *               total_shipping: 65.94
+ *               status_distribution:
+ *                 delivered: { count: 1, total: 118.74 }
+ *                 on_hold: { count: 1, total: 210.99 }
+ *                 pending: { count: 5, total: 972.95 }
+ *                 processing: { count: 1, total: 118.74 }
+ *               payment_status_distribution:
+ *                 paid: { count: 3, total: 448.47 }
+ *                 unpaid: { count: 5, total: 972.95 }
+ *               order_type_distribution:
+ *                 manual: { count: 8, total: 1421.42 }
+ *               currency_distribution:
+ *                 GBP: { count: 8, total: 1421.42 }
+ *               order_status_summary:
+ *                 pending: 5
+ *                 confirmed: 0
+ *                 processing: 1
+ *                 on_hold: 1
+ *                 shipped: 0
+ *                 delivered: 1
+ *                 cancelled: 0
+ *                 returned: 0
+ *               coupon_usage:
+ *                 orders_with_coupons: 0
+ *                 coupon_usage_rate: 0
+ *                 total_discount: 0
+ *                 average_discount: 0
+ *                 popular_coupons: []
+ *               customer_analysis:
+ *                 - accountId: "28fd8239-16a0-4d9a-b9b7-f6a04cea8da1"
+ *                   order_count: "8"
+ *                   total_spent: "1421.42"
+ *       404:
+ *         description: Not Found
+ */
+
+router.get('/analytics', authorize('orders', 'view'), orderAnalytics);
 
 /**
  * @openapi
@@ -279,7 +359,7 @@ router.get('/', authorize('stock', 'view'), getAll);
  *       404:
  *         description: Not Found
  */
-router.get('/:id', authorize('stock', 'view'), getOne);
+router.get('/:id', authorize('orders', 'view'), getOne);
 
 /**
  * @openapi
@@ -568,7 +648,7 @@ router.post('/', validateRequest(validationSchema), create);
  *       400:
  *         description: Bad request
  */
-router.put('/:id', authorize("stock", "manage"),  validateRequest(validationSchema), updateOne);
+router.put('/:id', authorize("orders", "manage"),  validateRequest(validationSchema), updateOne);
 
 /**
  * @openapi
@@ -592,7 +672,7 @@ router.put('/:id', authorize("stock", "manage"),  validateRequest(validationSche
  *       404:
  *         description: Not Found
  */
-router.delete('/:id', authorize("stock", "delete"), deleteOne);
+router.delete('/:id', authorize("orders", "delete"), deleteOne);
 
 /**
  * @openapi
