@@ -26,8 +26,17 @@ const ProductPricing = require("../models/products/pricing");
 const { getWebsiteIdByDomain } = require("./website");
 
 const generateOrderNumber = async () => {
-  const count = await Order.count();
-  return `LTC-O-${count + 1}`;
+  const lastOrder = await Order.findOne({
+    order: [['createdAt', 'DESC']]
+  });
+
+  if (!lastOrder) {
+    return 'LTC-O-1';
+  }
+
+  const orderParts = lastOrder.orderNumber.split('-');
+  const lastNumber = parseInt(orderParts[2]) + 1;
+  return `LTC-O-${lastNumber}`;
 };
 
 const create = async (req, res, next) => {
@@ -1146,6 +1155,7 @@ const createManualOrder = async (req, res, next) => {
       await Product.update(
         {
           inStock: Number(product.inStock) - Number(item.quantity),
+          saleStock: Number(product.saleStock || 0) + Number(item.quantity)
         },
         {
           where: { id: item.productId },
@@ -1196,21 +1206,22 @@ const createManualOrder = async (req, res, next) => {
 };
 
 // order analytics:
-const orderAnalytics = async (req, res, next) =>{
+const orderAnalytics = async (req, res, next) => {
   try {
-    const {startDate, endDate, website} = req.query;
+    const { startDate, endDate, website } = req.query;
     const response = await getOrderAnalytics({
       startDate,
       endDate,
-      website
+      website,
     });
 
-    res.status(200).json(message(true, 'Order analytics retrieved successfully', response))
+    res
+      .status(200)
+      .json(message(true, "Order analytics retrieved successfully", response));
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
-
+};
 
 module.exports = {
   create,
@@ -1223,32 +1234,49 @@ module.exports = {
   updatePaymentStatus,
   reviewOrder,
   createManualOrder,
-  orderAnalytics
+  orderAnalytics,
 };
-
 
 async function getOrderAnalytics(filters = {}) {
   try {
-    const { startDate, endDate, website } = filters;
+    let { startDate, endDate, website } = filters;
 
     const whereClause = {};
-    if (startDate && endDate) {
-      whereClause.createdAt = {
-        [Op.between]: [new Date(startDate), new Date(endDate)],
-      };
-    } else if (startDate) {
-      whereClause.createdAt = { [Op.gte]: new Date(startDate) };
-    } else if (endDate) {
-      whereClause.createdAt = { [Op.lte]: new Date(endDate) };
-    }
     if (website) whereClause.website = website;
 
+    const earliestOrder = await Order.findOne({
+      where: website ? { website } : {},
+      order: [["createdAt", "ASC"]],
+      attributes: ["createdAt"],
+      raw: true,
+    });
+
+    if (!earliestOrder) {
+      return {
+        period: `${start.toDateString()} to ${end.toDateString()}`,
+        order_type_distribution: null,
+        currency_distribution: null,
+        customer_analysis: null,
+        last_6_months_paid_returned: null,
+        transformStats: null,
+      };
+    }
+
+    const dataStart = new Date(earliestOrder.createdAt);
+
+    const start = startDate ? new Date(startDate) : dataStart;
+    const end = new Date(endDate || new Date());
+
+    whereClause.createdAt = {
+      [Op.between]: [start, end],
+    };
+
+    // Total orders check
     const totalOrders = await Order.count({ where: whereClause });
 
     if (totalOrders === 0) {
       return {
-        period:
-          startDate && endDate ? `${startDate} to ${endDate}` : "All time",
+        period: `${start.toDateString()} to ${end.toDateString()}`,
         total_orders: 0,
         total_sales: 0,
         average_order_value: 0,
@@ -1270,91 +1298,137 @@ async function getOrderAnalytics(filters = {}) {
           top_customers: [],
         },
         currency_distribution: {},
+        last_6_months_paid_returned: [],
       };
     }
-    const allTotalAmountValues = await Order.findAll({ attributes: ["total"] });
-    console.log(allTotalAmountValues);
 
-    const monetaryStats = await Order.findAll({
-      where: whereClause,
+    const monthStats = await Order.findAll({
+      where: {
+        createdAt: {
+          [Op.between]: [start, end],
+        },
+        ...(website ? { website } : {}),
+      },
       attributes: [
-        [sequelize.literal('COALESCE(SUM("total"), 0)'), "total_sales"],
-        [sequelize.literal('COALESCE(AVG("total"), 0)'), "average_order_value"],
-        [sequelize.literal('COALESCE(SUM("subtotal"), 0)'), "total_subtotal"],
-        [sequelize.literal('COALESCE(SUM("discount"), 0)'), "total_discount"],
-        [sequelize.literal('COALESCE(SUM("tax"), 0)'), "total_tax"],
         [
-          sequelize.literal('COALESCE(SUM("shippingCost"), 0)'),
-          "total_shipping",
+          sequelize.fn("DATE_TRUNC", "month", sequelize.col("createdAt")),
+          "month",
+        ],
+        "currency",
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "paymentStatus" = 'paid' THEN "total" ELSE 0 END`
+            )
+          ),
+          "paid_total",
+        ],
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "status" = 'returned' THEN 1 ELSE 0 END`
+            )
+          ),
+          "returned_count",
+        ],
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "status" = 'delivered' THEN 1 ELSE 0 END`
+            )
+          ),
+          "delivered_count",
+        ],
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "status" = 'cancelled' THEN 1 ELSE 0 END`
+            )
+          ),
+          "cancelled_count",
+        ],
+      ],
+      group: [
+        sequelize.fn("DATE_TRUNC", "month", sequelize.col("createdAt")),
+        "currency",
+      ],
+      order: [
+        [
+          sequelize.fn("DATE_TRUNC", "month", sequelize.col("createdAt")),
+          "ASC",
         ],
       ],
       raw: true,
     });
 
-    const statusDistribution = await Order.findAll({
-      where: whereClause,
-      attributes: [
-        "status",
-        [sequelize.fn("COUNT", sequelize.col("id")), "count"],
-        [sequelize.fn("SUM", sequelize.col("total")), "total"],
-      ],
-      group: ["status"],
-      raw: true,
-    });
 
-    const paymentStatusDistribution = await Order.findAll({
-      where: whereClause,
-      attributes: [
-        "paymentStatus",
-        [sequelize.fn("COUNT", sequelize.col("id")), "count"],
-        [sequelize.fn("SUM", sequelize.col("total")), "total"],
-      ],
-      group: ["paymentStatus"],
-      raw: true,
-    });
 
-    const orderTypeDistribution = await Order.findAll({
-      where: whereClause,
-      attributes: [
-        "type",
-        [sequelize.fn("COUNT", sequelize.col("id")), "count"],
-        [sequelize.fn("SUM", sequelize.col("total")), "total"],
-      ],
-      group: ["type"],
-      raw: true,
-    });
-
-    const currencyDistribution = await Order.findAll({
+    const statsByCurrency = await Order.findAll({
       where: whereClause,
       attributes: [
         "currency",
         [sequelize.fn("COUNT", sequelize.col("id")), "count"],
         [sequelize.fn("SUM", sequelize.col("total")), "total"],
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "status" = 'delivered' THEN 1 ELSE 0 END`
+            )
+          ),
+          "delivered",
+        ],
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "status" = 'returned' THEN 1 ELSE 0 END`
+            )
+          ),
+          "returned",
+        ],
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "status" = 'cancelled' THEN 1 ELSE 0 END`
+            )
+          ),
+          "cancelled",
+        ],
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "status" NOT IN ('delivered', 'returned', 'cancelled') THEN 1 ELSE 0 END`
+            )
+          ),
+          "in_process",
+        ],
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "paymentStatus" = 'paid' THEN "total" ELSE 0 END`
+            )
+          ),
+          "total_paid",
+        ],
+        [
+          sequelize.fn(
+            "SUM",
+            sequelize.literal(
+              `CASE WHEN "paymentStatus" = 'unpaid' THEN "total" ELSE 0 END`
+            )
+          ),
+          "total_unpaid",
+        ],
       ],
       group: ["currency"],
-      raw: true,
-    });
-
-    const couponStats = await Order.findAll({
-      where: { ...whereClause, couponCode: { [Op.ne]: null } },
-      attributes: [
-        [sequelize.fn("COUNT", sequelize.col("id")), "coupon_orders"],
-        [sequelize.fn("SUM", sequelize.col("discount")), "total_discount"],
-        [sequelize.fn("AVG", sequelize.col("discount")), "average_discount"],
-      ],
-      raw: true,
-    });
-
-    const popularCoupons = await Order.findAll({
-      where: { ...whereClause, couponCode: { [Op.ne]: null } },
-      attributes: [
-        "couponCode",
-        [sequelize.fn("COUNT", sequelize.col("id")), "usage_count"],
-        [sequelize.fn("SUM", sequelize.col("discount")), "total_discount"],
-      ],
-      group: ["couponCode"],
-      order: [[sequelize.fn("COUNT", sequelize.col("id")), "DESC"]],
-      limit: 10,
       raw: true,
     });
 
@@ -1365,102 +1439,96 @@ async function getOrderAnalytics(filters = {}) {
       },
       attributes: [
         "accountId",
-        [sequelize.fn("COUNT", sequelize.col("id")), "order_count"],
-        [sequelize.fn("SUM", sequelize.col("total")), "total_spent"],
+        [sequelize.fn("COUNT", sequelize.col("Order.id")), "order_count"],
+        [sequelize.fn("SUM", sequelize.col("Order.total")), "total_spent"],
+        [sequelize.literal(`"accountDetails"."email"`), "accountEmail"],
       ],
-      group: ["accountId"],
-      order: [[sequelize.fn("SUM", sequelize.col("total")), "DESC"]],
+      include: [
+        {
+          model: Account,
+          as: "accountDetails",
+          attributes: [],
+        },
+      ],
+      group: ["Order.accountId", "accountDetails.email"],
+      order: [[sequelize.fn("SUM", sequelize.col("Order.total")), "DESC"]],
       limit: 5,
       raw: true,
     });
 
-    const formattedStatusDistribution = {};
-    statusDistribution.forEach((status) => {
-      formattedStatusDistribution[status.status] = {
-        count: Number(status.count),
-        total: Number(status.total),
-      };
-    });
 
-    const formattedPaymentStatusDistribution = {};
-    paymentStatusDistribution.forEach((status) => {
-      formattedPaymentStatusDistribution[status.paymentStatus] = {
-        count: Number(status.count),
-        total: Number(status.total),
-      };
-    });
 
-    const formattedTypeDistribution = {};
-    orderTypeDistribution.forEach((type) => {
-      formattedTypeDistribution[type.type] = {
-        count: Number(type.count),
-        total: Number(type.total),
-      };
-    });
-
-    const formattedCurrencyDistribution = {};
-    currencyDistribution.forEach((curr) => {
-      formattedCurrencyDistribution[curr.currency] = {
-        count: Number(curr.count),
-        total: Number(curr.total),
-      };
-    });
-
-    const couponOrderCount = Number(couponStats[0]?.coupon_orders || 0);
-    const couponUsageRate =
-      totalOrders > 0 ? ((couponOrderCount / totalOrders) * 100).toFixed(2) : 0;
-
-    const formattedPopularCoupons = popularCoupons.map((coupon) => ({
-      code: coupon.couponCode,
-      usage_count: Number(coupon.usage_count),
-      total_discount: Number(coupon.total_discount),
-      average_discount: (
-        Number(coupon.total_discount) / Number(coupon.usage_count)
-      ).toFixed(2),
-    }));
-
-    console.log(monetaryStats);
+        const formattedCurrencyDistribution = {};
+        statsByCurrency.forEach((type) => {
+          formattedCurrencyDistribution[type.currency] = {
+            count: Number(type.count),
+            total: Number(type.total),
+            delivered: Number(type.delivered),
+            returned: Number(type.returned),
+            cancelled: Number(type.cancelled),
+            in_process: Number(type.in_process),
+            total_paid: Number(type.total_paid),
+             total_unpaid: Number(type.total_unpaid),
+          };
+        });
 
     return {
-      period: startDate && endDate ? `${startDate} to ${endDate}` : "All time",
-      total_orders: totalOrders,
-      total_sales: Number(monetaryStats[0]?.total_sales || 0),
-      average_order_value: Number(monetaryStats[0]?.average_order_value || 0),
-      total_subtotal: Number(monetaryStats[0]?.total_subtotal || 0),
-      total_discount: Number(monetaryStats[0]?.total_discount || 0),
-      total_tax: Number(monetaryStats[0]?.total_tax || 0),
-      total_shipping: Number(monetaryStats[0]?.total_shipping || 0),
-      status_distribution: formattedStatusDistribution,
-      payment_status_distribution: formattedPaymentStatusDistribution,
-
-      order_type_distribution: formattedTypeDistribution,
+      period: `${start.toDateString()} to ${end.toDateString()}`,
       currency_distribution: formattedCurrencyDistribution,
-      order_status_summary: {
-        pending: formattedStatusDistribution[ORDER_STATUS.PENDING]?.count || 0,
-        confirmed:
-          formattedStatusDistribution[ORDER_STATUS.CONFIRMED]?.count || 0,
-        processing:
-          formattedStatusDistribution[ORDER_STATUS.PROCESSING]?.count || 0,
-        on_hold: formattedStatusDistribution[ORDER_STATUS.ON_HOLD]?.count || 0,
-        shipped: formattedStatusDistribution[ORDER_STATUS.SHIPPED]?.count || 0,
-        delivered:
-          formattedStatusDistribution[ORDER_STATUS.DELIVERED]?.count || 0,
-        cancelled:
-          formattedStatusDistribution[ORDER_STATUS.CANCELLED]?.count || 0,
-        returned:
-          formattedStatusDistribution[ORDER_STATUS.RETURNED]?.count || 0,
-      },
-      coupon_usage: {
-        orders_with_coupons: couponOrderCount,
-        coupon_usage_rate: Number(couponUsageRate),
-        total_discount: Number(couponStats[0]?.total_discount || 0),
-        average_discount: Number(couponStats[0]?.average_discount || 0),
-        popular_coupons: formattedPopularCoupons,
-      },
       customer_analysis: topCustomers,
+      last_6_months_paid_returned: monthStats,
+      transformStats: transformStatsForChart(monthStats),
     };
   } catch (error) {
     console.error("Error in getOrderAnalytics:", error);
     throw error;
   }
+}
+
+function transformStatsForChart(data) {
+  // Group data by currency
+  const currencyGroups = {};
+
+  data.forEach((item) => {
+    if (!currencyGroups[item.currency]) {
+      currencyGroups[item.currency] = [];
+    }
+    currencyGroups[item.currency].push(item);
+  });
+
+  // Create the result object
+  const result = {};
+
+  Object.keys(currencyGroups).forEach((currency) => {
+    const currencyData = currencyGroups[currency];
+
+    // Sort by month to ensure proper order
+    currencyData.sort((a, b) => new Date(a.month) - new Date(b.month));
+
+    // Initialize arrays for this currency
+    result[currency] = {
+      label: [],
+      total_paid: [],
+      returned_count: [],
+      delivered_count: [],
+      cancelled_count: [],
+    };
+
+    // Fill arrays with actual data only for months that exist for this currency
+    currencyData.forEach((monthData) => {
+      // Format month label (YYYY-MM)
+      const monthLabel = new Date(monthData.month).toISOString().slice(0, 7);
+      result[currency].label.push(monthLabel);
+      result[currency].total_paid.push(parseFloat(monthData.paid_total));
+      result[currency].returned_count.push(parseInt(monthData.returned_count));
+      result[currency].delivered_count.push(
+        parseInt(monthData.delivered_count)
+      );
+      result[currency].cancelled_count.push(
+        parseInt(monthData.cancelled_count)
+      );
+    });
+  });
+
+  return result;
 }

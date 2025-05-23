@@ -1064,8 +1064,6 @@ const getProductAnalytics = async (req, res, next) => {
     const { startDate, endDate, website } = req.query;
     const formatStartDate = startDate ? new Date(startDate) : null;
     const formatEndDate = endDate ? new Date(endDate) : null;
-
-    const productStatsByCurrency = await getProductCountByCurrency(website);
     const productCurrencyStats = await getProductStockAnalytics(
       website,
       formatStartDate,
@@ -1078,14 +1076,13 @@ const getProductAnalytics = async (req, res, next) => {
         message(
           true,
           "Product analytics retrieved successfully",
-          { ...productStatsByCurrency, ...productCurrencyStats }
+          productCurrencyStats
         )
       );
   } catch (error) {
     next(error);
   }
 };
-
 
 module.exports = {
   create,
@@ -1105,44 +1102,43 @@ module.exports = {
   restoreProducts,
   copyProduct,
   getProductInformation,
-  getProductAnalytics
+  getProductAnalytics,
 };
 
+// async function getProductCountByCurrency(
+//   websiteId = null,
+//   startDate = null,
+//   endDate = null
+// ) {
+//   const productWhere = {};
+//   if (websiteId) {
+//     productWhere.websiteId = { [Op.contains]: [websiteId] };
+//   }
 
-async function getProductCountByCurrency(
-  websiteId = null,
-  startDate = null,
-  endDate = null
-) {
-  const productWhere = {};
-  if (websiteId) {
-    productWhere.websiteId = { [Op.contains]: [websiteId] };
-  }
+//   try {
+//     const [results] = await sequelize.query(`
+//       SELECT pp.currency, COUNT(*) as count
+//       FROM "product_pricing" pp
+//       INNER JOIN "products" p ON pp."productId" = p."id"
+//       ${websiteId ? `WHERE p."websiteId" @> ARRAY['${websiteId}']` : ""}
+//       ${
+//         startDate && endDate
+//           ? `${
+//               websiteId ? "AND" : "WHERE"
+//             } p."createdAt" BETWEEN '${startDate}' AND '${endDate}'`
+//           : ""
+//       }
+//       GROUP BY pp.currency
+//     `);
 
-  try {
-    const [results] = await sequelize.query(`
-      SELECT pp.currency, COUNT(*) as count
-      FROM "product_pricing" pp
-      INNER JOIN "products" p ON pp."productId" = p."id"
-      ${websiteId ? `WHERE p."websiteId" @> ARRAY['${websiteId}']` : ""}
-      ${
-        startDate && endDate
-          ? `${
-              websiteId ? "AND" : "WHERE"
-            } p."createdAt" BETWEEN '${startDate}' AND '${endDate}'`
-          : ""
-      }
-      GROUP BY pp.currency
-    `);
-
-    return Object.fromEntries(
-      results.map((r) => [r.currency, parseInt(r.count)])
-    );
-  } catch (error) {
-    console.error("Error in getProductCountByCurrency:", error);
-    return {};
-  }
-}
+//     return Object.fromEntries(
+//       results.map((r) => [r.currency, parseInt(r.count)])
+//     );
+//   } catch (error) {
+//     console.error("Error in getProductCountByCurrency:", error);
+//     return {};
+//   }
+// }
 
 async function getProductStockAnalytics(
   websiteId = null,
@@ -1163,28 +1159,21 @@ async function getProductStockAnalytics(
   // Check if products exist first
   const count = await Product.count({ where: whereClause });
 
-  if (count === 0) {
-    return {
-      total_products: 0,
-      total_sale_stock: 0,
-      total_in_stock: 0,
-      unique_tags_count: 0,
-    };
-  }
-
-  const result = await Product.findAll({
-    where: whereClause,
-    attributes: [
-      [sequelize.fn("COUNT", sequelize.col("id")), "total_products"],
-      [sequelize.fn("SUM", sequelize.col("saleStock")), "total_sale_stock"],
-      [sequelize.fn("SUM", sequelize.col("inStock")), "total_in_stock"],
-    ],
+  if (count === 0) [];
+  const topProducts = await Product.findAll({
+    where: {
+      ...whereClause,
+      saleStock: {
+        [Op.gt]: 0, // Only products with sales > 0
+      },
+    },
+    attributes: ["id", "name", "sku", "saleStock"],
+    order: [["saleStock", "DESC"]],
+    limit: 5,
     raw: true,
   });
 
-  return {
-    total_products: parseInt(result[0]?.total_products || 0),
-    total_sale_stock: parseInt(result[0]?.total_sale_stock || 0),
-    total_in_stock: parseInt(result[0]?.total_in_stock || 0),
-  };
+  return topProducts;
 }
+
+
