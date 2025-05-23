@@ -13,18 +13,7 @@ const Attribute = sequelize.define('Attribute', {
   },
   name: {
     type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      notEmpty: true,
-      isValidName(value) {
-        if (!/^[a-zA-Z0-9\s]+$/.test(value)) {
-          throw new Error('Name can only contain letters, numbers, and spaces');
-        }
-        if (value.trim().length === 0) {
-          throw new Error('Name cannot be just spaces');
-        }
-      }
-    }
+    allowNull: false
   },
   slug: {
     type: DataTypes.STRING,

@@ -197,9 +197,8 @@ async function getPurchaseAnalytics(filters = {}) {
       "vendor_distribution": []
     }
 
-  const [monetaryStats, statusDistribution, paymentTypes, currencies, vendors] =
+  const [statusDistribution, paymentTypes, currencies, vendors] =
     await Promise.all([
-      getPurchaseMonetaryStats(whereClause),
       getPurchaseStatusDistribution(whereClause),
       getPaymentTypeDistribution(whereClause),
       getCurrencyDistribution(whereClause),
@@ -207,7 +206,6 @@ async function getPurchaseAnalytics(filters = {}) {
     ]);
 
   return {
-    ...monetaryStats,
     ...statusDistribution,
     payment_types: paymentTypes,
     currency_distribution: currencies,
@@ -226,40 +224,30 @@ async function getPurchaseStatusDistribution(where) {
     raw: true,
   });
 
-  const statusCounts = Object.fromEntries(
-    rows.map((r) => [r.status, Number(r.count)])
-  );
-  const completed = statusCounts[PURCHASE_STATUS.COMPLETED] || 0;
-  const pending = statusCounts[PURCHASE_STATUS.PENDING] || 0;
+  // Initialize all expected statuses with 0
+  const statusCounts = {
+    [PURCHASE_STATUS.PENDING]: 0,
+    [PURCHASE_STATUS.COMPLETED]: 0,
+    [PURCHASE_STATUS.CANCELLED]: 0,
+  };
+
+  // Override with actual counts from DB
+  for (const row of rows) {
+    statusCounts[row.status] = Number(row.count);
+  }
+
+  const completed = statusCounts[PURCHASE_STATUS.COMPLETED];
+  const pending = statusCounts[PURCHASE_STATUS.PENDING];
+
+  const total = completed + pending;
+  const completionRate = total > 0 ? ((completed / total) * 100).toFixed(2) : "0.00";
 
   return {
     completed_purchases: completed,
     pending_purchases: pending,
-    completion_rate: ((completed / (completed + pending)) * 100).toFixed(2),
+    cancelled_purchases: statusCounts[PURCHASE_STATUS.CANCELLED],
+    completion_rate: completionRate,
     status_distribution: statusCounts,
-  };
-}
-
-async function getPurchaseMonetaryStats(where) {
-  const [stats] = await Purchase.findAll({
-    where,
-    attributes: [
-      [sequelize.fn("SUM", sequelize.col("totalAmount")), "total_amount"],
-      [sequelize.fn("SUM", sequelize.col("subTotal")), "total_subtotal"],
-      [sequelize.fn("SUM", sequelize.col("discount")), "total_discount"],
-      [sequelize.fn("SUM", sequelize.col("tax")), "total_tax"],
-      [sequelize.fn("SUM", sequelize.col("shipping")), "total_shipping"],
-    ],
-    raw: true,
-  });
-
-  return {
-    total_purchases: await Purchase.count({ where }),
-    total_amount: Number(stats.total_amount) || 0,
-    total_subtotal: Number(stats.total_subtotal) || 0,
-    total_discount: Number(stats.total_discount) || 0,
-    total_tax: Number(stats.total_tax) || 0,
-    total_shipping: Number(stats.total_shipping) || 0,
   };
 }
 
@@ -278,7 +266,7 @@ async function getPaymentTypeDistribution(where) {
 }
 
 async function getCurrencyDistribution(where) {
-  const rows = await Purchase.findAll({
+  const rows  = await Purchase.findAll({
     where,
     attributes: [
       "currency",
@@ -289,12 +277,7 @@ async function getCurrencyDistribution(where) {
     raw: true,
   });
 
-  return Object.fromEntries(
-    rows.map((r) => [
-      r.currency,
-      { count: Number(r.count), total: Number(r.total) },
-    ])
-  );
+  return rows
 }
 
 async function getTopVendorsBySpend(where) {
@@ -302,28 +285,30 @@ async function getTopVendorsBySpend(where) {
     where,
     attributes: [
       "vendorId",
-      [sequelize.fn("COUNT", sequelize.col("id")), "purchase_count"],
+      [sequelize.fn("COUNT", sequelize.col("Purchase.id")), "purchase_count"],
       [sequelize.fn("SUM", sequelize.col("totalAmount")), "total_spent"],
     ],
-    group: ["vendorId"],
+    include: [
+      {
+        model: Vendor,
+        as: "vendor",
+        attributes: ["id", "email"],
+      },
+    ],
+    group: ["vendor.id", "Purchase.vendorId"],
     order: [[sequelize.fn("SUM", sequelize.col("totalAmount")), "DESC"]],
     limit: 5,
     raw: true,
+    nest: true,
   });
 
-  const vendorIds = vendorRows.map((v) => v.vendorId);
-  const vendors = await Vendor.findAll({
-    where: { id: { [Op.in]: vendorIds } },
-    attributes: ["id", "email"],
-    raw: true,
-  });
-
-  const map = new Map(vendors.map((v) => [v.id, v.name]));
-  return vendorRows.map((v) => ({
-    vendorId: v.vendorId,
-    vendorName: map.get(v.vendorId) || "Unknown Vendor",
-    purchase_count: Number(v.purchase_count),
-    total_spent: Number(v.total_spent),
+  return vendorRows.map((row) => ({
+    vendorId: row.vendorId,
+    vendorName: row.vendor.name,
+    vendorEmail: row.vendor.email,
+    purchase_count: Number(row.purchase_count),
+    total_spent: Number(row.total_spent),
   }));
 }
+
 
