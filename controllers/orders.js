@@ -27,14 +27,14 @@ const { getWebsiteIdByDomain } = require("./website");
 
 const generateOrderNumber = async () => {
   const lastOrder = await Order.findOne({
-    order: [['createdAt', 'DESC']]
+    order: [["createdAt", "DESC"]],
   });
 
   if (!lastOrder) {
-    return 'LTC-O-1';
+    return "LTC-O-1";
   }
 
-  const orderParts = lastOrder.orderNumber.split('-');
+  const orderParts = lastOrder.orderNumber.split("-");
   const lastNumber = parseInt(orderParts[2]) + 1;
   return `LTC-O-${lastNumber}`;
 };
@@ -1155,7 +1155,7 @@ const createManualOrder = async (req, res, next) => {
       await Product.update(
         {
           inStock: Number(product.inStock) - Number(item.quantity),
-          saleStock: Number(product.saleStock || 0) + Number(item.quantity)
+          saleStock: Number(product.saleStock || 0) + Number(item.quantity),
         },
         {
           where: { id: item.productId },
@@ -1365,8 +1365,6 @@ async function getOrderAnalytics(filters = {}) {
       raw: true,
     });
 
-
-
     const statsByCurrency = await Order.findAll({
       where: whereClause,
       attributes: [
@@ -1456,21 +1454,19 @@ async function getOrderAnalytics(filters = {}) {
       raw: true,
     });
 
-
-
-        const formattedCurrencyDistribution = {};
-        statsByCurrency.forEach((type) => {
-          formattedCurrencyDistribution[type.currency] = {
-            count: Number(type.count),
-            total: Number(type.total),
-            delivered: Number(type.delivered),
-            returned: Number(type.returned),
-            cancelled: Number(type.cancelled),
-            in_process: Number(type.in_process),
-            total_paid: Number(type.total_paid),
-             total_unpaid: Number(type.total_unpaid),
-          };
-        });
+    const formattedCurrencyDistribution = {};
+    statsByCurrency.forEach((type) => {
+      formattedCurrencyDistribution[type.currency] = {
+        count: Number(type.count),
+        total: Number(type.total),
+        delivered: Number(type.delivered),
+        returned: Number(type.returned),
+        cancelled: Number(type.cancelled),
+        in_process: Number(type.in_process),
+        total_paid: Number(type.total_paid),
+        total_unpaid: Number(type.total_unpaid),
+      };
+    });
 
     return {
       period: `${start.toDateString()} to ${end.toDateString()}`,

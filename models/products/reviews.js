@@ -1,76 +1,94 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../../config/database');
-const {Product} = require('./index');
+const { DataTypes } = require("sequelize");
+const sequelize = require("../../config/database");
+const { Product } = require("./index");
 
 const REVIEW_STATUS = {
-  PENDING : 'pending',
-  APPROVED :  'approved',
-  REJECTED : 'rejected'
-}
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+};
 
-const ProductReview = sequelize.define('ProductReview', {
-  id: {
-    type: DataTypes.UUID,
-    primaryKey: true,
-    defaultValue: DataTypes.UUIDV4,
-    allowNull: false
-  },
-  rating: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      min: 1,
-      max: 5
-    }
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      notEmpty: true
-    }
-  },
-  email: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  title: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  content: {
-    type: DataTypes.TEXT,
-    allowNull: false,
-    validate: {
-      notEmpty: true
-    }
-  },
-  productId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: {
-      model: Product,
-      key: 'id'
-    }
-  },
-  status: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      isIn: [Object.values(REVIEW_STATUS)]
+const ProductReview = sequelize.define(
+  "ProductReview",
+  {
+    id: {
+      type: DataTypes.UUID,
+      primaryKey: true,
+      defaultValue: DataTypes.UUIDV4,
+      allowNull: false,
     },
-    defaultValue: REVIEW_STATUS.PENDING
+    website: {
+      type: DataTypes.STRING,
+      validate: {
+        notEmpty: true,
+      },
+    },
+    rating: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        min: 1,
+        max: 5,
+      },
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notEmpty: true,
+      },
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    title: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    content: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      validate: {
+        notEmpty: true,
+      },
+    },
+    productId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: Product,
+        key: "id",
+      },
+    },
+    status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isIn: [Object.values(REVIEW_STATUS)],
+      },
+      defaultValue: REVIEW_STATUS.PENDING,
+    },
   },
-}, {
-  timestamps: true,
-  tableName: 'product_reviews',
-  indexes: [
-    { fields: ['productId'] },
-    { fields: ['rating'] }
-  ]
-});
+  {
+    timestamps: true,
+    tableName: "product_reviews",
+    indexes: [{ fields: ["productId"] }, { fields: ["rating"] }],
+    hooks: {
+      beforeUpdate: (instance) => {
+        if (instance.changed("website")) {
+          throw new Error("Website field is immutable and cannot be updated.");
+        }
+      },
+    },
+  }
+);
 
-ProductReview.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'SET NULL'});
-Product.hasMany(ProductReview, { foreignKey: 'productId' });
+ProductReview.belongsTo(Product, {
+  foreignKey: "productId",
+  as: "product",
+  onDelete: "SET NULL",
+});
+Product.hasMany(ProductReview, { foreignKey: "productId" });
 
 module.exports = ProductReview;

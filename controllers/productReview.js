@@ -8,8 +8,11 @@ const sequelize = require('../config/database');
 // Create a new review
 const createReview = async (req, res, next) => {
   try {
-
+    const domain = req.hostname || req.headers.host;
+    const website = await getWebsiteIdByDomain(domain);
+    
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    payload['website'] = website
 
     const existingReview = await ProductReview.findOne({
       where: { 
